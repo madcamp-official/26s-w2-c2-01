@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TRADE CHASER — 안 본 사이 브리핑</title>
+<style>
+  :root{
+    --bg:#f6f6f4; --card:#ffffff; --line:#e6e5e0;
+    --t1:#1e1e1c; --t2:#6b6a64; --t3:#9a998f;
+    --accent:#185fa5; --accent-bg:#e6f1fb;
+    --pos:#0f6e56; --pos-bg:#e1f5ee;
+    --warn:#854f0b; --warn-bg:#faeeda;
+    --neg:#a32d2d; --neg-bg:#fcebeb;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#1a1a18; --card:#242422; --line:#38382f;
+      --t1:#f2f1ea; --t2:#a8a79d; --t3:#78776f;
+      --accent:#85b7eb; --accent-bg:#0c447c;
+      --pos:#9fe1cb; --pos-bg:#085041;
+      --warn:#fac775; --warn-bg:#633806;
+      --neg:#f09595; --neg-bg:#791f1f;
+    }
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--t1);
+    font-family:'Apple SD Gothic Neo','Malgun Gothic',system-ui,-apple-system,sans-serif;
+    line-height:1.6;padding:24px;display:flex;justify-content:center}
+  .app{width:100%;max-width:440px}
+  .head{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+  .logo{width:34px;height:34px;border-radius:9px;background:var(--accent-bg);color:var(--accent);
+    display:flex;align-items:center;justify-content:center;font-size:18px}
+  .title{font-size:15px;font-weight:600}
+  .sub{font-size:12px;color:var(--t2)}
+  .seg{display:flex;gap:6px;background:var(--card);border:.5px solid var(--line);
+    padding:4px;border-radius:11px;margin-bottom:10px}
+  .seg button{flex:1;font:inherit;font-size:13px;padding:8px 0;border:none;border-radius:7px;
+    background:transparent;color:var(--t2);cursor:pointer}
+  .seg button.on{background:var(--bg);color:var(--t1);font-weight:600;border:.5px solid var(--line)}
+  .strip{display:flex;align-items:center;gap:8px;background:var(--accent-bg);color:var(--accent);
+    border-radius:9px;padding:10px 12px;font-size:13px;margin-bottom:14px}
+  .strip b{font-weight:600}
+  .list{display:flex;flex-direction:column;gap:8px}
+  .row{display:flex;align-items:center;gap:12px;background:var(--card);border:.5px solid var(--line);
+    border-radius:11px;padding:12px 14px}
+  .row .main{flex:1;min-width:0}
+  .tick{display:flex;align-items:center;gap:8px;margin-bottom:3px}
+  .tick .sym{font-size:14px;font-weight:600}
+  .tag{font-size:11px;padding:2px 8px;border-radius:12px}
+  .tag.pos{background:var(--pos-bg);color:var(--pos)}
+  .tag.warn{background:var(--warn-bg);color:var(--warn)}
+  .tag.neu{background:var(--bg);border:.5px solid var(--line);color:var(--t2)}
+  .desc{font-size:12px;color:var(--t2)}
+  .chg{text-align:right;flex-shrink:0}
+  .chg .pct{font-size:14px;font-weight:600}
+  .chg .cnt{font-size:11px;color:var(--t3)}
+  .up{color:var(--pos)} .down{color:var(--neg)} .flat{color:var(--t2)}
+  .foot{font-size:11px;color:var(--t3);margin-top:14px}
+  .icn{font-size:16px;line-height:1}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="head">
+    <div class="logo">↺</div>
+    <div>
+      <div class="title">안 본 사이 브리핑</div>
+      <div class="sub">마지막 접속 7월 7일 · 3일간 못 본 소식</div>
+    </div>
+  </div>
+
+  <div class="seg">
+    <button>밤사이</button>
+    <button class="on">지난 3일</button>
+    <button>지난주</button>
+    <button>직접 설정</button>
+  </div>
+
+  <div class="strip">
+    <span class="icn">✉</span>
+    <span>7월 7일~10일 · 관심종목 <b>5개</b>에서 주요 이슈 <b>8건</b></span>
+  </div>
+
+  <div class="list">
+    <div class="row">
+      <div class="main">
+        <div class="tick"><span class="sym">NVDA</span><span class="tag pos">긍정</span></div>
+        <div class="desc">데이터센터 실적 호조 · 반도체 섹터 강세</div>
+      </div>
+      <div class="chg"><div class="pct up">+8.4%</div><div class="cnt">이슈 2건</div></div>
+    </div>
+    <div class="row">
+      <div class="main">
+        <div class="tick"><span class="sym">TSLA</span><span class="tag warn">주의</span></div>
+        <div class="desc">인도량 둔화 우려 · 가격 정책 변경</div>
+      </div>
+      <div class="chg"><div class="pct down">-3.1%</div><div class="cnt">이슈 3건</div></div>
+    </div>
+    <div class="row">
+      <div class="main">
+        <div class="tick"><span class="sym">AAPL</span><span class="tag neu">중립</span></div>
+        <div class="desc">신제품 출시 루머 · 특이 이슈 적음</div>
+      </div>
+      <div class="chg"><div class="pct flat">+0.4%</div><div class="cnt">이슈 1건</div></div>
+    </div>
+  </div>
+
+  <div class="foot">기간을 바꾸면 그 구간의 관심종목 이슈를 다시 모아 요약합니다 · 정보 제공 목적, 투자 권유 아님</div>
+</div>
+</body>
+</html>
