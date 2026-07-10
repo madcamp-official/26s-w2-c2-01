@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TRADE CHASER — 모델·데이터·비용·정확도 분석 리포트</title>
+<style>
+  :root{
+    --bg:#f4f5f8; --card:#ffffff; --panel:#f9fafc; --line:#e8e8ee; --line2:#dedee6;
+    --t1:#1b1c22; --t2:#6a6c78; --t3:#9b9daa;
+    --accent:#5b5bd6; --accent-bg:#eeeefc; --accent-line:#c9c9f5;
+    --pos:#0f6e56; --pos-bg:#e1f5ee; --warn:#854f0b; --warn-bg:#faeeda; --neg:#a32d2d; --neg-bg:#fcebeb;
+    --shadow:0 1px 2px rgba(20,20,40,.04),0 4px 16px rgba(20,20,40,.05);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#101016; --card:#1d1e26; --panel:#16171e; --line:#2c2d38; --line2:#353643;
+      --t1:#f0f0f4; --t2:#a3a5b3; --t3:#6f7180;
+      --accent:#8b8bf5; --accent-bg:#26264a; --accent-line:#3d3d72;
+      --pos:#9fe1cb; --pos-bg:#0d4335; --warn:#fac775; --warn-bg:#4d2c05; --neg:#f09595; --neg-bg:#4a1414;
+      --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.32);
+    }
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--t1);
+    font-family:'Apple SD Gothic Neo','Malgun Gothic',system-ui,-apple-system,sans-serif;
+    -webkit-font-smoothing:antialiased;line-height:1.65;padding:28px 20px;display:flex;justify-content:center}
+  .wrap{width:100%;max-width:860px}
+  h1{font-size:24px;font-weight:700;letter-spacing:-.01em;margin-bottom:4px}
+  .sub{font-size:14px;color:var(--t2);margin-bottom:22px}
+  h2{font-size:18px;font-weight:700;margin:26px 0 12px;display:flex;align-items:center;gap:9px}
+  h2 .n{width:24px;height:24px;border-radius:7px;background:var(--accent-bg);color:var(--accent);
+    font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  h3{font-size:14px;font-weight:600;color:var(--t2);margin:16px 0 8px}
+  p{font-size:14px;color:var(--t2);margin-bottom:10px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px;
+    margin-bottom:14px;box-shadow:var(--shadow)}
+  .note{background:var(--warn-bg);border:1px solid var(--warn);border-radius:12px;padding:12px 15px;
+    font-size:13px;color:var(--warn);margin-bottom:16px}
+  .note b{font-weight:700}
+  .tblwrap{overflow-x:auto;margin:6px 0 4px}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:440px}
+  th,td{padding:9px 11px;text-align:right;border-bottom:1px solid var(--line)}
+  th:first-child,td:first-child{text-align:left}
+  thead th{font-size:12px;font-weight:600;color:var(--t3);border-bottom:1px solid var(--line2)}
+  tbody tr:last-child td{border-bottom:none}
+  .cap{font-size:12px;color:var(--t3);margin-top:6px}
+  .best{background:var(--accent-bg);color:var(--accent);font-weight:700;border-radius:6px}
+  .hi{color:var(--accent);font-weight:600}
+  .mono{font-variant-numeric:tabular-nums}
+  .pill{display:inline-block;font-size:11px;padding:2px 8px;border-radius:11px;font-weight:600}
+  .pill.g{background:var(--pos-bg);color:var(--pos)} .pill.w{background:var(--warn-bg);color:var(--warn)}
+  .pill.r{background:var(--neg-bg);color:var(--neg)} .pill.n{background:var(--panel);border:1px solid var(--line2);color:var(--t2)}
+  ul{margin:4px 0 10px 2px;padding-left:18px} li{font-size:14px;color:var(--t2);margin-bottom:5px}
+  svg{display:block;width:100%;height:auto}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--t2);margin-top:8px}
+  .legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:0}
+  .rec{background:var(--accent-bg);border:1px solid var(--accent-line);border-radius:14px;padding:16px 18px;margin-bottom:14px}
+  .rec h2{margin-top:0}
+  b{font-weight:600;color:var(--t1)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>TRADE CHASER — 모델·데이터·비용·정확도 분석 리포트</h1>
+  <div class="sub">"오늘의 브리핑" 1건(종목 1개, 하루 1회) 생성 기준 · 2026-07-10 · 요금은 Claude API 공시가</div>
+
+  <div class="note">
+    <b>정확도는 측정값이 아닌 정성 추정치입니다.</b> 아래 정확도(%)는 모델 지능 등급과 입력 정보량을 근거로 한 상대 추정이며, 벤치마크 수치가 아닙니다. 실제 값은 정답 10~20건으로 소규모 eval을 돌려야 확정됩니다. 토큰·비용은 산식 기반 실측 추정입니다.
+  </div>
+
+  <h2><span class="n">1</span>요금 & 산정 가정</h2>
+  <div class="card">
+    <h3>모델별 요금 (per 1M 토큰)</h3>
+    <div class="tblwrap"><table>
+      <thead><tr><th>모델</th><th>입력</th><th>출력</th><th>특징</th></tr></thead>
+      <tbody>
+        <tr><td>Claude Opus 4.8</td><td class="mono">$5.00</td><td class="mono">$25.00</td><td>최고 해석·환각 억제</td></tr>
+        <tr><td>Claude Sonnet 5 <span class="pill n">인트로</span></td><td class="mono">$2.00</td><td class="mono">$10.00</td><td>~8/31까지 인트로가(이후 $3/$15)</td></tr>
+        <tr><td>Claude Haiku 4.5</td><td class="mono">$1.00</td><td class="mono">$5.00</td><td>가장 저렴·빠름</td></tr>
+      </tbody>
+    </table></div>
+    <h3 style="margin-top:16px">토큰 산정 가정</h3>
+    <div class="tblwrap"><table>
+      <thead><tr><th>항목</th><th>토큰(추정)</th><th>비고</th></tr></thead>
+      <tbody>
+        <tr><td>고정 오버헤드(시스템+가드레일+시세)</td><td class="mono">~600</td><td>건수 무관</td></tr>
+        <tr><td>기사 1건 — 제목만</td><td class="mono">~20</td><td>헤드라인</td></tr>
+        <tr><td>기사 1건 — 제목+스니펫</td><td class="mono">~200</td><td>API 요약 2~3문장</td></tr>
+        <tr><td>기사 1건 — 원문 전체</td><td class="mono">~1,200</td><td>본문 크롤링</td></tr>
+        <tr><td>출력(브리핑 JSON)</td><td class="mono">~1,000</td><td>스키마 고정 · 입력량과 무관</td></tr>
+      </tbody>
+    </table></div>
+    <p class="cap">입력 토큰 = 600 + (기사 수 × 기사당 토큰). 출력은 스키마가 정해져 있어 ~1,000으로 고정.</p>
+  </div>
+
+  <h2><span class="n">2</span>비용 매트릭스 (종목 1개 / 1회 생성)</h2>
+  <p>입력 방식 × 기사 수 × 모델. 셀은 1회 브리핑 생성 비용(USD).</p>
+
+  <div class="card">
+    <h3>A. 제목만</h3>
+    <div class="tblwrap"><table>
+      <thead><tr><th>기사 수</th><th>Opus 4.8</th><th>Sonnet 5</th><th>Haiku 4.5</th></tr></thead>
+      <tbody class="mono">
+        <tr><td>5건</td><td>$0.029</td><td>$0.011</td><td>$0.006</td></tr>
+        <tr><td>10건</td><td>$0.029</td><td>$0.012</td><td>$0.006</td></tr>
+        <tr><td>20건</td><td>$0.030</td><td>$0.012</td><td>$0.006</td></tr>
+      </tbody>
+    </table></div>
+    <p class="cap">입력이 워낙 작아 출력 비용이 지배 → 건수를 늘려도 비용 거의 안 변함. 대신 정보량 부족.</p>
+  </div>
+
+  <div class="card">
+    <h3>B. 제목+스니펫 <span class="pill g">권장</span></h3>
+    <div class="tblwrap"><table>
+      <thead><tr><th>기사 수</th><th>Opus 4.8</th><th>Sonnet 5</th><th>Haiku 4.5</th></tr></thead>
+      <tbody class="mono">
+        <tr><td>5건</td><td>$0.033</td><td>$0.013</td><td>$0.007</td></tr>
+        <tr><td>10건</td><td>$0.038</td><td class="best">$0.015</td><td>$0.008</td></tr>
+        <tr><td>20건</td><td>$0.048</td><td>$0.019</td><td>$0.010</td></tr>
+      </tbody>
+    </table></div>
+    <p class="cap">정보량 대비 토큰 효율이 가장 좋은 구간. 10건이 균형점.</p>
+  </div>
+
+  <div class="card">
+    <h3>C. 원문 전체</h3>
+    <div class="tblwrap"><table>
+      <thead><tr><th>기사 수</th><th>Opus 4.8</th><th>Sonnet 5</th><th>Haiku 4.5</th></tr></thead>
+      <tbody class="mono">
+        <tr><td>5건</td><td>$0.058</td><td>$0.023</td><td>$0.012</td></tr>
+        <tr><td>10건</td><td>$0.088</td><td>$0.035</td><td>$0.018</td></tr>
+        <tr><td>20건</td><td class="best" style="background:var(--neg-bg);color:var(--neg)">$0.148</td><td>$0.059</td><td>$0.030</td></tr>
+      </tbody>
+    </table></div>
+    <p class="cap">입력이 커지며 비용 급증. 크롤링·파싱 부담까지 감안하면 가성비 최악 구간.</p>
+  </div>
+
+  <h2><span class="n">3</span>예상 정확도 (정성 추정)</h2>
+  <p>두 축의 곱: <b>입력 정보량</b>(제목&lt;스니펫&lt;원문)이 상한을 정하고, <b>모델 해석력</b>(Haiku&lt;Sonnet&lt;Opus)이 그 안에서 실현도를 정합니다.</p>
+  <div class="card">
+    <div class="tblwrap"><table>
+      <thead><tr><th>입력 방식</th><th>Haiku 4.5</th><th>Sonnet 5</th><th>Opus 4.8</th></tr></thead>
+      <tbody class="mono">
+        <tr><td>제목만</td><td>~60%</td><td>~66%</td><td>~70%</td></tr>
+        <tr><td>제목+스니펫</td><td>~76%</td><td class="best">~86%</td><td class="best">~90%</td></tr>
+        <tr><td>원문 전체</td><td>~81%</td><td>~90%</td><td>~95%</td></tr>
+      </tbody>
+    </table></div>
+    <p class="cap">정확도 = "핵심 이슈를 빠짐없이, 근거 있게, 환각 없이" 잡는 정도의 상대 추정. 제목만은 모델이 빈틈을 상상으로 메워 환각 위험↑.</p>
+  </div>
+
+  <h2><span class="n">4</span>비용 × 정확도 (기사 10건 기준)</h2>
+  <p>오른쪽 위로 갈수록 좋음(정확도↑). 왼쪽일수록 저렴. 회색=제목만, 보라=스니펫, 주황=원문.</p>
+  <div class="card">
+    <svg viewBox="0 0 600 360" role="img" aria-label="비용 대비 정확도 산점도">
+      <line x1="70" y1="320" x2="570" y2="320" stroke="var(--line2)" stroke-width="1"/>
+      <line x1="70" y1="40" x2="70" y2="320" stroke="var(--line2)" stroke-width="1"/>
+      <!-- x ticks -->
+      <g font-size="11" fill="var(--t3)" text-anchor="middle">
+        <text x="179" y="338">$0.02</text><text x="288" y="338">$0.04</text>
+        <text x="397" y="338">$0.06</text><text x="506" y="338">$0.08</text>
+        <text x="320" y="354" fill="var(--t2)">1회 생성 비용 (USD)</text>
+      </g>
+      <!-- y ticks -->
+      <g font-size="11" fill="var(--t3)" text-anchor="end">
+        <text x="62" y="293">60%</text><text x="62" y="231">70%</text>
+        <text x="62" y="169">80%</text><text x="62" y="106">90%</text><text x="62" y="44">100%</text>
+      </g>
+      <text x="20" y="185" font-size="11" fill="var(--t2)" transform="rotate(-90 20 185)" text-anchor="middle">예상 정확도</text>
+      <!-- 제목만 gray -->
+      <g fill="#8a8c9a">
+        <circle cx="102" cy="289" r="6"/><circle cx="133" cy="252" r="6"/><circle cx="228" cy="227" r="6"/>
+      </g>
+      <!-- 스니펫 indigo -->
+      <g fill="#5b5bd6">
+        <circle cx="111" cy="189" r="6"/><circle cx="153" cy="127" r="7"/><circle cx="277" cy="102" r="7"/>
+      </g>
+      <!-- 원문 amber -->
+      <g fill="#ba7517">
+        <circle cx="166" cy="158" r="6"/><circle cx="262" cy="102" r="6"/><circle cx="549" cy="71" r="6"/>
+      </g>
+      <!-- labels for key points -->
+      <g font-size="11" fill="var(--t2)">
+        <text x="163" y="123">스니펫·Sonnet</text>
+        <text x="287" y="98">스니펫·Opus</text>
+        <text x="505" y="67" text-anchor="end">원문·Opus</text>
+      </g>
+      <!-- sweet spot -->
+      <ellipse cx="215" cy="115" rx="95" ry="34" fill="none" stroke="#5b5bd6" stroke-dasharray="4 4" stroke-width="1.5" opacity="0.7"/>
+      <text x="215" y="168" font-size="11" fill="#5b5bd6" text-anchor="middle" font-weight="600">가성비 스위트스팟</text>
+    </svg>
+    <div class="legend">
+      <span><i style="background:#8a8c9a"></i>제목만</span>
+      <span><i style="background:#5b5bd6"></i>제목+스니펫</span>
+      <span><i style="background:#ba7517"></i>원문 전체</span>
+    </div>
+    <p class="cap">핵심: <b class="hi">스니펫+Opus(~90%, $0.038)</b> ≈ <b>원문+Sonnet(~90%, $0.035)</b>. 원문+Opus는 +5%p를 위해 2배 이상 지불 → 수확 체감.</p>
+  </div>
+
+  <h2><span class="n">5</span>권장 구성 & 실제 운영비</h2>
+  <div class="rec">
+    <h2 style="font-size:16px"><span class="n">★</span>추천: 제목+스니펫 10건 · 2단계 모델 믹스</h2>
+    <p style="color:var(--t1)">무거운 <b>①팩트추출은 Sonnet 5</b>, 품질이 중요한 <b>②성향렌더는 Opus 4.8</b>로 분리.</p>
+    <div class="tblwrap"><table>
+      <thead><tr><th>단계</th><th>모델</th><th>입력/출력</th><th>비용</th></tr></thead>
+      <tbody class="mono">
+        <tr><td>① 팩트 추출</td><td>Sonnet 5</td><td>~2,600 / 600</td><td>$0.011</td></tr>
+        <tr><td>② 성향 렌더</td><td>Opus 4.8</td><td>~1,000 / 700</td><td>$0.023</td></tr>
+        <tr><td><b>합계 / 종목 / 일</b></td><td></td><td></td><td class="hi">≈ $0.034</td></tr>
+      </tbody>
+    </table></div>
+    <p style="margin-top:10px;color:var(--t1)"><b>캠프 규모(고유 50종목 · 1주일):</b> 50 × $0.034 × 7 ≈ <b class="hi">$12</b> (캐싱으로 사용자 수와 무관).</p>
+  </div>
+
+  <h2><span class="n">6</span>결론</h2>
+  <div class="card">
+    <ul>
+      <li><b>원문 전체는 비권장</b> — 정확도 +5%p 얻자고 비용 2~4배 + 크롤링/파싱 리스크. 수확 체감 구간.</li>
+      <li><b>제목만도 비권장</b> — 저렴하지만 정보 부족으로 환각 위험↑, 정확도 상한 ~70%.</li>
+      <li><b>스위트스팟 = 제목+스니펫 10건</b> — 정보량 대비 토큰 효율 최적.</li>
+      <li><b>모델은 2단계 믹스</b> — 대량 읽기(①)는 Sonnet/Haiku, 해석(②)은 Opus. 비용↓ 품질 유지.</li>
+      <li><b>비용은 "넣는 데이터 양"에 정비례</b> — 크롤링 양이 아니라 프롬프트 투입량이 변수. 필터·요약이 핵심 레버.</li>
+    </ul>
+    <p class="cap" style="margin-top:8px">다음 단계: 정답 셋 10~20건으로 스니펫 vs 원문 · Sonnet vs Opus를 실제 eval → 위 정확도 추정치를 실측으로 교체 권장.</p>
+  </div>
+</div>
+</body>
+</html>
