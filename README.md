@@ -158,17 +158,7 @@ npm run dev   # 또는 python main.py 등
 
 ### 팀원별 소감
 
-**김도연:**
-
-> 
-
-**원건희:**
-
-> 
-
-**황시우:**
-
-> 
+https://app.notion.com/p/398994da1b5c800fb2f2fd27b4b90b6d?v=398994da1b5c806b8751000c0b4eb381&p=399994da1b5c8015a302e9df94eb58ae&pm=s
 
 ---
 
