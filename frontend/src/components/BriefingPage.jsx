@@ -1,39 +1,51 @@
-import { PERIODS, STOCKS, SENT, SECTORS, OVERVIEW, chgClass } from '../data.js';
+import { PERIODS, SENT_LABEL } from '../data.js';
 import Icon from './Icon.jsx';
 
-function StockCard({ ticker, period, onOpenDetail }) {
-  const s = STOCKS[ticker];
-  const iss = Math.round(s.issues * PERIODS[period].mult);
-  const [lbl, cls] = SENT[s.sent];
+function StockCard({ stock, briefing, missing, onOpenDetail }) {
+  const { ticker } = stock;
+  const [lbl, cls] = briefing?.sentiment ? SENT_LABEL[briefing.sentiment] : [null, null];
   return (
     <div className="srow" style={{ cursor: 'pointer' }} onClick={() => onOpenDetail({ type: 'stock', ticker })}>
       <div className="m">
         <div className="tk">
           <span className="sym">{ticker}</span>
-          <span className={`tag ${cls}`}>{lbl}</span>
-          <span className="sec">{s.name} · {s.sector}</span>
+          {lbl && <span className={`tag ${cls}`}>{lbl}</span>}
+          <span className="sec">{stock.name_ko || stock.name_en} · {stock.sector?.name_ko ?? '섹터 미지정'}</span>
         </div>
-        <div className="desc">{s.desc}</div>
+        <div className="desc">
+          {briefing?.summary ?? (missing ? '아직 브리핑이 생성되지 않았습니다.' : '')}
+        </div>
       </div>
-      <div className="chg">
-        <div className={`pct ${chgClass(s.chg)}`}>{s.chg}</div>
-        <div className="cnt">이슈 {iss}건</div>
-      </div>
+      {briefing && (
+        <div className="chg">
+          <div className="cnt">이슈 {(briefing.positive_factors?.length ?? 0) + (briefing.negative_factors?.length ?? 0)}건</div>
+        </div>
+      )}
     </div>
   );
 }
 
 export default function BriefingPage({
   period, setPeriod, briefingTab, setBriefingTab,
-  watch, stockSearch, setStockSearch, onOpenDetail, onAddStock,
+  stocks, watch, watchBusy, watchError, stockSearch, setStockSearch, onOpenDetail, onAddStock,
+  briefingByTicker, missingTickers, marketOverview,
 }) {
   const P = PERIODS[period];
 
-  const avail = Object.keys(STOCKS).filter((t) => !watch.includes(t));
+  const watchSet = new Set(watch);
+  const avail = stocks.filter((s) => !watchSet.has(s.ticker));
   const q = stockSearch.trim().toLowerCase();
   const filtered = q
-    ? avail.filter((t) => t.toLowerCase().includes(q) || STOCKS[t].name.toLowerCase().includes(q))
+    ? avail.filter((s) => s.ticker.toLowerCase().includes(q) || (s.name_ko || '').toLowerCase().includes(q) || s.name_en.toLowerCase().includes(q))
     : avail;
+
+  const watchStocks = watch.map((t) => stocks.find((s) => s.ticker === t)).filter(Boolean);
+
+  const sectorGroups = {};
+  stocks.forEach((s) => {
+    const name = s.sector?.name_ko ?? '섹터 미지정';
+    (sectorGroups[name] ??= []).push(s);
+  });
 
   return (
     <div className="maxw">
@@ -57,11 +69,7 @@ export default function BriefingPage({
           <div className="srow" style={{ cursor: 'pointer' }} onClick={() => onOpenDetail({ type: 'overview' })}>
             <div className="m">
               <div className="tk"><span className="sym">전체 시황</span><span className="tag neu">{P.label}</span></div>
-              <div className="desc">{OVERVIEW.summary}</div>
-            </div>
-            <div className="chg">
-              <div className="pct up">{OVERVIEW.indices[0].chg}</div>
-              <div className="cnt">나스닥</div>
+              <div className="desc">{marketOverview?.summary ?? '아직 전체 시황 브리핑이 생성되지 않았습니다.'}</div>
             </div>
           </div>
         </div>
@@ -69,13 +77,12 @@ export default function BriefingPage({
 
       {briefingTab === 'sector' && (
         <div className="rows">
-          {Object.entries(SECTORS).map(([name, s]) => (
+          {Object.entries(sectorGroups).map(([name, list]) => (
             <div key={name} className="srow" style={{ cursor: 'pointer' }} onClick={() => onOpenDetail({ type: 'sector', id: name })}>
               <div className="m">
                 <div className="tk"><span className="sym">{name}</span></div>
-                <div className="desc">{s.desc}</div>
+                <div className="desc">{list.length}개 종목</div>
               </div>
-              <div className="chg"><div className={`pct ${chgClass(s.chg)}`}>{s.chg}</div></div>
             </div>
           ))}
         </div>
@@ -91,22 +98,32 @@ export default function BriefingPage({
               value={stockSearch}
               autoComplete="off"
               onChange={(e) => setStockSearch(e.target.value)}
+              disabled={watchBusy}
             />
           </div>
+          {watchError && <div className="strip" style={{ background: 'var(--neg-bg)', color: 'var(--neg)', marginTop: 8 }}>{watchError}</div>}
           <div className="searchresults">
             {!avail.length && <div className="hint2" style={{ padding: '8px 2px' }}>모든 종목을 이미 관심종목에 추가했습니다.</div>}
             {avail.length > 0 && !filtered.length && <div className="hint2" style={{ padding: '8px 2px' }}>검색 결과가 없습니다.</div>}
-            {filtered.map((t) => (
-              <div key={t} className="searchrow" onClick={() => onAddStock(t)}>
-                <div className="sm"><span className="sym">{t}</span><span className="sec">{STOCKS[t].name} · {STOCKS[t].sector}</span></div>
+            {filtered.map((s) => (
+              <div key={s.ticker} className="searchrow" onClick={() => !watchBusy && onAddStock(s.ticker)}>
+                <div className="sm"><span className="sym">{s.ticker}</span><span className="sec">{s.name_ko || s.name_en} · {s.sector?.name_ko ?? '섹터 미지정'}</span></div>
                 <span className="addbtn"><Icon size={14}><path d="M12 5v14M5 12h14" /></Icon></span>
               </div>
             ))}
           </div>
 
-          {watch.length ? (
+          {watchStocks.length ? (
             <div className="rows" style={{ marginTop: 16 }}>
-              {watch.map((t) => <StockCard key={t} ticker={t} period={period} onOpenDetail={onOpenDetail} />)}
+              {watchStocks.map((s) => (
+                <StockCard
+                  key={s.ticker}
+                  stock={s}
+                  briefing={briefingByTicker[s.ticker]}
+                  missing={missingTickers.has(s.ticker)}
+                  onOpenDetail={onOpenDetail}
+                />
+              ))}
             </div>
           ) : (
             <div className="strip" style={{ marginTop: 14 }}>검색해서 관심종목을 추가하면 여기 브리핑이 생성됩니다.</div>

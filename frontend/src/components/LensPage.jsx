@@ -1,4 +1,4 @@
-import { CATS, CATLABEL, PRESETS, PRESET_ICON, recFor, buildPreview } from '../data.js';
+import { PRESET_ICON, buildPreview } from '../data.js';
 import Icon from './Icon.jsx';
 
 function CategoryGroup({ group, lens, isOpen, query, onToggleChip, onOpenSearch, onCloseSearch, onQueryChange, onPick }) {
@@ -58,10 +58,10 @@ function CategoryGroup({ group, lens, isOpen, query, onToggleChip, onOpenSearch,
 
 export default function LensPage({
   ticker, stock, lens, updateLens, onBack,
+  catGroups, catLabel, presets, presetsByCode, rec,
   catSearchOpen, setCatSearchOpen, catSearchQuery, setCatSearchQuery,
 }) {
-  const rec = recFor(ticker);
-  const preview = buildPreview(lens);
+  const preview = buildPreview(lens, catLabel, presetsByCode);
 
   function toggleChip(code) {
     updateLens((l) => {
@@ -94,32 +94,35 @@ export default function LensPage({
     });
   }
 
+  const recPrimaryPreset = presetsByCode[rec.primary.preset];
+  const recAltPreset = presetsByCode[rec.alt.preset];
+
   return (
     <div className="lens-grid">
       <div>
         <div className="backlink" onClick={onBack}>
           <Icon size={15}><path d="M15 18l-6-6 6-6" /></Icon> 마이페이지로
         </div>
-        <div className="crumbline">{ticker} · {stock.name} 분석 렌즈</div>
+        <div className="crumbline">{ticker} · {stock.name_ko || stock.name_en} 분석 렌즈</div>
 
         <div className="recbox">
           <div className="rt">
             <Icon size={14}><path d="M12 2l3 6.5 7 .9-5 4.8 1.3 7L12 18l-6.6 3.2L6.7 14l-5-4.8 7-.9z" /></Icon>
-            {stock.name}({stock.sector}) 추천 렌즈
+            {(stock.name_ko || stock.name_en)}({stock.sector?.name_ko ?? '섹터 미지정'}) 추천 렌즈
           </div>
           <div className="rechips">
             <div className="rechip" onClick={() => applyRec('primary')}>
-              <b>기본 추천</b>{rec.primary.cats.map((c) => CATLABEL[c]).join(' · ')} + {PRESETS[rec.primary.preset].name}
+              <b>기본 추천</b>{rec.primary.cats.map((c) => catLabel[c] || c).join(' · ')} + {recPrimaryPreset?.name_ko ?? rec.primary.preset}
             </div>
             <div className="rechip alt" onClick={() => applyRec('alt')}>
-              <b>대안 추천</b>{rec.alt.cats.map((c) => CATLABEL[c]).join(' · ')} + {PRESETS[rec.alt.preset].name}
+              <b>대안 추천</b>{rec.alt.cats.map((c) => catLabel[c] || c).join(' · ')} + {recAltPreset?.name_ko ?? rec.alt.preset}
             </div>
           </div>
         </div>
 
         <div className="block">
           <div className="block-h"><span className="num">1</span><h2>분석 카테고리</h2><span className="hint">그룹별 + 로 추가</span></div>
-          {CATS.map((g) => (
+          {catGroups.map((g) => (
             <CategoryGroup
               key={g.key}
               group={g}
@@ -141,12 +144,12 @@ export default function LensPage({
         <div className="block">
           <div className="block-h"><span className="num">2</span><h2>분석 성향</h2><span className="hint">하나 선택</span></div>
           <div className="cards">
-            {Object.entries(PRESETS).map(([code, p]) => (
-              <div key={code} className={`pcard ${lens.preset === code ? 'on' : ''}`} onClick={() => setPreset(code)}>
+            {presets.map((p) => (
+              <div key={p.code} className={`pcard ${lens.preset === p.code ? 'on' : ''}`} onClick={() => setPreset(p.code)}>
                 <div className="chk"><Icon size={12}><path d="M20 6L9 17l-5-5" /></Icon></div>
-                <div className="pi"><Icon size={17} shapes={PRESET_ICON[code]} /></div>
-                <div className="pn">{p.name}</div>
-                <div className="pd">{p.desc}</div>
+                <div className="pi"><Icon size={17} shapes={PRESET_ICON[p.code]} /></div>
+                <div className="pn">{p.name_ko}</div>
+                <div className="pd">{p.persona_text}</div>
               </div>
             ))}
           </div>
@@ -171,6 +174,7 @@ export default function LensPage({
             onChange={(e) => setNote(e.target.value)}
           />
         </div>
+        <p className="hint2" style={{ marginTop: -8 }}>이 렌즈 설정은 현재 브라우저에만 저장됩니다 (서버 저장 API는 아직 준비 중입니다).</p>
       </div>
 
       <div className="rail">
