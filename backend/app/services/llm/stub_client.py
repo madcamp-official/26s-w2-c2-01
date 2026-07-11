@@ -1,0 +1,64 @@
+"""
+실제 LLM을 호출하지 않고 그럴듯한 더미 구조화 데이터를 만들어내는 스텁 구현.
+실제 API(Claude 등)가 정해지기 전까지 파이프라인 전체(추출→렌더링→저장)를
+end-to-end로 돌려보고 프론트와 통합 테스트하는 용도.
+"""
+
+from app.schemas.llm import BriefingRender, FactItem, FactsExtraction, ReasonItem
+from app.services.llm.base import BriefingLLMClient
+
+
+class StubBriefingLLMClient(BriefingLLMClient):
+    model_name = "stub-v1"
+
+    def extract_facts(
+        self,
+        *,
+        source_type: str,
+        tickers: list[str],
+        document_text: str,
+    ) -> FactsExtraction:
+        has_text = bool(document_text and document_text.strip())
+        claim = (
+            "입력 문서 내 관련 뉴스 발췌 (스텁 - 실제 LLM 미연동)"
+            if has_text
+            else "수집된 뉴스가 없어 참고할 근거가 없습니다 (스텁)"
+        )
+        return FactsExtraction(
+            entities=tickers,
+            key_issues=[f"{t} 관련 이슈 (스텁 더미 데이터)" for t in tickers],
+            facts=[FactItem(claim=claim, evidence=document_text[:200] if has_text else "", source_url=None)],
+            figures=[],
+        )
+
+    def render_briefing(
+        self,
+        *,
+        facts: FactsExtraction,
+        categories: list[str],
+        preset_persona: str,
+        depth: str,
+        language: str,
+    ) -> BriefingRender:
+        tickers = facts.entities or ["종목"]
+        ticker_label = ", ".join(tickers)
+        return BriefingRender(
+            summary=(
+                f"[스텁 브리핑] {ticker_label} 관련 실제 LLM 호출 없이 생성된 더미 요약입니다. "
+                f"성향: {preset_persona[:30] if preset_persona else '기본'}..."
+            ),
+            sentiment="neutral",
+            positive_factors=[],
+            negative_factors=[],
+            watch_issues=[f"{ticker_label} 관련 뉴스 직접 확인 필요 (LLM 파이프라인 미연동)"],
+            reasons=[
+                ReasonItem(
+                    factor=issue,
+                    impact="중립",
+                    explain="스텁 데이터 - 실제 근거 아님",
+                    source_url=None,
+                )
+                for issue in facts.key_issues
+            ],
+            today_actions=["LLM API 연동 후 실제 브리핑으로 교체 예정"],
+        )
