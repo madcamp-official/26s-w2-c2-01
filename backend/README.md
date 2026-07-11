@@ -35,12 +35,31 @@ uvicorn app.main:app --reload
 - 관심 종목 등록/삭제/조회, 인기 종목 랭킹
 - 종목 검색, 섹터 목록
 - 분석 카테고리/성향 프리셋 목록 (커스터마이즈 렌즈 UI용 마스터 데이터)
-- 오늘의 브리핑 조회 — `daily_briefings` 캐시를 읽기만 함. 캐시가 없는 종목은
-  `missing_tickers` 로 내려줌 (뉴스 수집·Claude 파이프라인·스케줄러는 아직 미구현)
+- Finnhub 시세·뉴스 수집 (`app/services/finnhub_client.py`, `app/services/market_data.py`)
+  — `FINNHUB_API_KEY` 설정 후 `python -m app.jobs.collect_market_data` 로 관심종목
+  전체의 종가·뉴스를 수집
+- 브리핑 생성 파이프라인 (`app/services/briefing_pipeline.py`) — 뉴스를 모아
+  1단계(팩트 추출) → 2단계(성향 렌더링)를 거쳐 `daily_briefings` 에 저장.
+  **LLM API 종류를 아직 정하지 못해서 지금은 스텁(`app/services/llm/stub_client.py`)이
+  더미 데이터를 생성**한다. 파이프라인 구조·저장 로직은 실제 API와 동일하게 동작하므로,
+  나중에 `app/services/llm/claude_client.py` 두 메서드만 구현하고
+  `app/services/llm/factory.py` 분기를 켜면 그대로 실제 브리핑으로 전환된다.
+- `GET /briefings/today` — 캐시가 없는 관심종목은 요청 안에서 온디맨드로
+  파이프라인을 돌려 채운다 (기획서.md 7-1절 "on-demand 보완")
+
+## 잡 스크립트 (아직 스케줄러에 연결 안 됨 — 수동 실행용)
+
+```bash
+python -m app.jobs.collect_market_data   # 관심종목 시세·뉴스 수집
+python -m app.jobs.generate_briefings    # 오늘자 브리핑 없는 관심종목 전체 생성
+```
+
+두 스크립트의 `run()` 함수가 나중에 APScheduler 크론 잡이 매일 07:00 KST에
+호출할 대상이다.
 
 ## 다음 단계
 
-- Finnhub 뉴스/시세 수집 배치
-- Claude 2단계 브리핑 파이프라인 ([../프롬프트템플릿.md](../프롬프트템플릿.md))
-- APScheduler 매일 07:00 KST 트리거
+- LLM API 종류 확정 → `app/services/llm/claude_client.py` 구현
+- APScheduler 매일 07:00 KST 트리거 (`app/jobs/*.run()` 호출)
 - 커스터마이즈 렌즈 문서 분석 엔드포인트 (`document_analyses`/`analysis_renders`)
+- market_overviews(전체 시황) 생성 — 현재는 읽기 전용, 채우는 로직 없음
