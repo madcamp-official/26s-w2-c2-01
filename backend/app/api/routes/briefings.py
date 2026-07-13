@@ -7,10 +7,11 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_user
 from app.crud.watchlist import list_watchlist
 from app.db.session import get_db
-from app.models.briefing import DailyBriefing, MarketOverview
+from app.models.briefing import DailyBriefing
 from app.models.user import User
 from app.schemas.briefing import TodayBriefingResponse
 from app.services.briefing_pipeline import generate_daily_briefing
+from app.services.market_overview_pipeline import generate_market_overview
 
 router = APIRouter(prefix="/briefings", tags=["briefings"])
 
@@ -18,10 +19,9 @@ router = APIRouter(prefix="/briefings", tags=["briefings"])
 @router.get("/today", response_model=TodayBriefingResponse)
 def today_briefing(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """
-    관심 종목별 오늘자 브리핑을 반환한다. daily_briefings 캐시에 없는 종목은
-    이 요청 안에서 온디맨드로 생성해 채운다 (기획서.md 7-1절 "on-demand 보완").
-    LLM API가 아직 정해지지 않아 지금은 스텁 파이프라인이 생성한다
-    (app/services/llm/factory.py).
+    관심 종목별 오늘자 브리핑 + 전체 시황을 반환한다. 캐시에 없거나
+    REFRESH_INTERVAL_HOURS보다 오래됐으면 이 요청 안에서 온디맨드로 생성해
+    채운다 (기획서.md 7-1절 "on-demand 보완").
     """
     today = date.today()
     watchlist = list_watchlist(db, current_user.id)
@@ -44,7 +44,11 @@ def today_briefing(current_user: User = Depends(get_current_user), db: Session =
         except ValueError:
             still_missing.append(ticker)
 
-    market_overview = db.scalar(select(MarketOverview).where(MarketOverview.briefing_date == today))
+    try:
+        market_overview = generate_market_overview(db, briefing_date=today)
+    except Exception as e:  # noqa: BLE001 - 시황 생성 실패해도 종목 브리핑은 정상 반환
+        print(f"전체 시황 생성 실패: {e}")
+        market_overview = None
 
     return TodayBriefingResponse(
         market_overview=market_overview,

@@ -123,12 +123,18 @@ export default function App() {
   // REC_LENS 매핑용으로 섹터명 -> 카테고리 code를 명시적으로 연결한다.
   const SECTOR_NAME_TO_CODE = {
     '반도체·AI': 'SEMI',
-    '빅테크': 'BIGTECH',
-    '전기차': 'EV',
+    '테크·소프트웨어': 'TECH',
+    '미디어·인터넷': 'MEDIA',
+    '소비재·유통': 'CONSUMER',
+    '자동차': 'AUTO',
     '금융': 'FIN',
     '헬스케어': 'HEALTH',
     '에너지': 'ENERGY',
-    '소비재': 'CONSUMER',
+    '산업재': 'INDUST',
+    '통신': 'TELECOM',
+    '부동산': 'REALESTATE',
+    '소재': 'MATERIALS',
+    '유틸리티': 'UTIL',
   };
   function sectorCodeOf(ticker) {
     const s = stocksByTicker[ticker]?.sector;
@@ -162,6 +168,12 @@ export default function App() {
     try {
       const item = await addWatchlist(ticker);
       setWatchItems((prev) => [...prev, item]);
+      // 관심종목 추가 시점에 백엔드가 섹터를 지연 분류하므로(classify_and_save),
+      // 응답에 담긴 최신 stock(섹터 포함)으로 stocks 목록도 갱신해야
+      // 방금 연 렌즈 화면이 "섹터 미지정" 같은 오래된 값을 보지 않는다.
+      if (item.stock) {
+        setStocks((prev) => prev.map((s) => (s.ticker === item.stock.ticker ? item.stock : s)));
+      }
       setStockSearch('');
       openLens(ticker);
     } catch (err) {

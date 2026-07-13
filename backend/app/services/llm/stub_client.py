@@ -4,7 +4,7 @@
 end-to-end로 돌려보고 프론트와 통합 테스트하는 용도.
 """
 
-from app.schemas.llm import BriefingRender, FactItem, FactsExtraction, ReasonItem
+from app.schemas.llm import BriefingRender, FactItem, FactsExtraction, MarketOverviewRender, ReasonItem
 from app.services.llm.base import BriefingLLMClient
 
 
@@ -61,4 +61,11 @@ class StubBriefingLLMClient(BriefingLLMClient):
                 for issue in facts.key_issues
             ],
             today_actions=["LLM API 연동 후 실제 브리핑으로 교체 예정"],
+        )
+
+    def render_market_overview(self, *, facts: FactsExtraction) -> MarketOverviewRender:
+        return MarketOverviewRender(
+            summary="[스텁 시황] 실제 LLM 호출 없이 생성된 더미 전체 시황 요약입니다.",
+            indices={},
+            sector_moves={},
         )

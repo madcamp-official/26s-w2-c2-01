@@ -49,3 +49,18 @@ class BriefingRender(BaseModel):
     reasons: list[ReasonItem] = []
     today_actions: list[str] = []
     disclaimer: str = "본 브리핑은 정보 제공 목적이며 투자 권유가 아닙니다."
+
+
+class MarketOverviewRender(BaseModel):
+    """
+    전체 시황 렌더링 결과. market_overviews 테이블에 저장된다.
+
+    Finnhub 무료 티어는 지수 시세(나스닥 등)를 안 주므로, indices/sector_moves는
+    "뉴스에 실제로 언급된 방향성 서술"만 담는다 — 정확한 등락률 수치를 지어내지
+    않는다(환각 방지). 언급이 없는 지수/섹터는 아예 키를 안 넣어도 된다.
+    """
+
+    summary: str
+    indices: dict[str, str] = {}       # 예: {"나스닥": "AI 반도체 강세에 상승 마감 언급"}
+    sector_moves: dict[str, str] = {}  # 예: {"에너지": "중동 정세로 유가 급등, 강세 언급"}
+    disclaimer: str = "본 브리핑은 정보 제공 목적이며 투자 권유가 아닙니다."

@@ -47,7 +47,8 @@ export default function BriefingDetailPage({
   }
 
   if (detail.type === 'sector') {
-    const rows = stocks.filter((s) => (s.sector?.name_ko ?? '섹터 미지정') === detail.id);
+    // 관심종목 기준 그룹이므로 상세에서도 관심종목만 나열한다.
+    const rows = stocks.filter((s) => watch.includes(s.ticker) && (s.sector?.name_ko ?? '섹터 미지정') === detail.id);
     return (
       <div className="maxw">
         {BackLink}

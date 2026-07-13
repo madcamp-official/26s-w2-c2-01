@@ -28,7 +28,9 @@ class DailyBriefing(Base):
     reasons: Mapped[list] = mapped_column(JSONB, default=list)
     today_actions: Mapped[list] = mapped_column(JSONB, default=list)
     model: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    generated_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    #: onupdate — 정기 갱신(하루 4번) 때마다 같은 행을 UPDATE하므로, 그때마다 이 값도 갱신되어야
+    #: briefing_pipeline.py의 신선도 판단(REFRESH_INTERVAL_HOURS)이 정확해진다.
+    generated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
 
 
 class MarketOverview(Base):
@@ -40,4 +42,4 @@ class MarketOverview(Base):
     indices: Mapped[dict] = mapped_column(JSONB, default=dict)
     sector_moves: Mapped[dict] = mapped_column(JSONB, default=dict)
     model: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    generated_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    generated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())

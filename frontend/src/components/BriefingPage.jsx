@@ -41,8 +41,10 @@ export default function BriefingPage({
 
   const watchStocks = watch.map((t) => stocks.find((s) => s.ticker === t)).filter(Boolean);
 
+  // "섹터" 탭은 전체 종목 카탈로그가 아니라 관심종목만 섹터별로 묶어 보여준다 —
+  // 관심종목에 추가하는 순간 지연 분류가 되므로 자동으로 "관심 섹터" 목록이 된다.
   const sectorGroups = {};
-  stocks.forEach((s) => {
+  watchStocks.forEach((s) => {
     const name = s.sector?.name_ko ?? '섹터 미지정';
     (sectorGroups[name] ??= []).push(s);
   });
@@ -59,7 +61,7 @@ export default function BriefingPage({
       </div>
 
       <div className="chips" style={{ marginBottom: 14 }}>
-        {[['mine', '내 종목'], ['sector', '섹터'], ['overview', '전체']].map(([k, l]) => (
+        {[['mine', '내 종목'], ['sector', '관심 섹터'], ['overview', '전체']].map(([k, l]) => (
           <span key={k} className={`chip ${briefingTab === k ? 'on' : ''}`} onClick={() => setBriefingTab(k)}>{l}</span>
         ))}
       </div>
@@ -77,6 +79,9 @@ export default function BriefingPage({
 
       {briefingTab === 'sector' && (
         <div className="rows">
+          {!Object.keys(sectorGroups).length && (
+            <div className="strip">관심종목을 추가하면 소속 섹터가 자동으로 여기 묶여서 나타납니다.</div>
+          )}
           {Object.entries(sectorGroups).map(([name, list]) => (
             <div key={name} className="srow" style={{ cursor: 'pointer' }} onClick={() => onOpenDetail({ type: 'sector', id: name })}>
               <div className="m">

@@ -1,16 +1,17 @@
 """
-Claude API 연동 스켈레톤 — 아직 미구현.
+Claude API 연동 구현.
 
-LLM API 종류/모델을 확정하면 이 파일만 채우면 된다:
-1. requirements.txt 에 anthropic 패키지 추가
-2. .env 의 ANTHROPIC_API_KEY 채우기
-3. 아래 두 메서드에 실제 API 호출 구현
-4. factory.py 에서 ANTHROPIC_API_KEY 존재 시 이 클래스를 반환하도록 주석 해제
+`extract_facts`/`render_briefing` 모두 client.messages.parse(output_format=...)를
+써서, 응답을 Pydantic 스키마(FactsExtraction / BriefingRender)로 직접 검증·파싱한다.
+파싱/호출이 실패하면 1회 재시도한다 (프롬프트템플릿.md 4절 "Claude API 팁").
 
-시스템/유저 프롬프트 문구는 프롬프트템플릿.md 1단계·2단계 섹션 그대로 쓰면 된다.
+시스템 프롬프트는 매 호출마다 동일하므로 prompt caching(cache_control)을 걸어
+반복 호출 시 입력 토큰 비용을 절감한다.
 """
 
-from app.schemas.llm import BriefingRender, FactsExtraction
+from anthropic import Anthropic
+
+from app.schemas.llm import BriefingRender, FactsExtraction, MarketOverviewRender
 from app.services.llm.base import BriefingLLMClient
 
 FACTS_SYSTEM_PROMPT = """\
@@ -31,13 +32,44 @@ RENDER_SYSTEM_PROMPT = """\
 5. 출력은 지정 JSON 스키마만.
 """
 
+MARKET_SYSTEM_PROMPT = """\
+너는 미국 주식시장 전체 시황을 요약하는 애널리스트다. 아래 규칙은 항상 우선한다.
+1. 제공된 facts JSON의 근거를 벗어난 새로운 사실·수치를 만들지 않는다.
+2. 나스닥·S&P500·다우 등 지수의 정확한 등락률 "수치"는 절대 지어내지 않는다.
+   facts에 실제로 등장한 방향성 서술(예: "AI 반도체 강세로 상승 마감했다는 언급")만
+   담아라. 특정 지수에 대한 언급이 facts에 없으면 그 지수는 아예 넣지 않는다.
+3. 섹터별 강약도 facts에 실제 근거가 있을 때만 서술한다. 추측 금지.
+4. 매매 지시를 하지 않는다.
+5. 출력 끝에 "본 브리핑은 정보 제공 목적이며 투자 권유가 아닙니다"를 포함한다.
+6. 출력은 지정 JSON 스키마만.
+"""
+
 
 class ClaudeBriefingLLMClient(BriefingLLMClient):
-    model_name = "claude-opus-4-8"  # TODO: 최종 모델 확정되면 교체
+    model_name = "claude-opus-4-8"
 
     def __init__(self, api_key: str) -> None:
         self.api_key = api_key
-        # TODO: anthropic.Anthropic(api_key=api_key) 클라이언트 초기화
+        self._client = Anthropic(api_key=api_key)
+
+    def _parse_with_retry(self, *, system_prompt: str, user_prompt: str, output_format, max_tokens: int):
+        """구조화 출력을 요청하고, 실패하면 1회만 재시도한다."""
+        last_error: Exception | None = None
+        for _ in range(2):  # 최초 시도 + 1회 재시도
+            try:
+                response = self._client.messages.parse(
+                    model=self.model_name,
+                    max_tokens=max_tokens,
+                    system=[
+                        {"type": "text", "text": system_prompt, "cache_control": {"type": "ephemeral"}},
+                    ],
+                    messages=[{"role": "user", "content": user_prompt}],
+                    output_format=output_format,
+                )
+                return response.parsed_output
+            except Exception as exc:  # noqa: BLE001 - API/파싱 실패 시 재시도, 최종 실패는 위로 전파
+                last_error = exc
+        raise RuntimeError(f"Claude 구조화 출력 생성 실패(재시도 포함): {last_error}") from last_error
 
     def extract_facts(
         self,
@@ -46,12 +78,20 @@ class ClaudeBriefingLLMClient(BriefingLLMClient):
         tickers: list[str],
         document_text: str,
     ) -> FactsExtraction:
-        # TODO:
-        #   user_prompt = f"[문서 종류] {source_type}\n[관련 종목] {tickers}\n[문서 원문]\n{document_text}"
-        #   응답을 anthropic 메시지 API로 호출 (FACTS_SYSTEM_PROMPT 사용)
-        #   반환된 JSON 텍스트를 FactsExtraction.model_validate_json() 으로 파싱
-        #   파싱 실패 시 1회 재시도 (프롬프트템플릿.md 4절 "Claude API 팁")
-        raise NotImplementedError("Claude API 연동 전입니다 — LLM API 종류 확정 후 구현 예정")
+        user_prompt = (
+            f"[문서 종류] {source_type}\n"
+            f"[관련 종목] {', '.join(tickers) if tickers else '(미지정)'}\n"
+            f"[문서 원문]\n{document_text or '(수집된 뉴스가 없습니다)'}"
+        )
+        return self._parse_with_retry(
+            system_prompt=FACTS_SYSTEM_PROMPT,
+            user_prompt=user_prompt,
+            output_format=FactsExtraction,
+            # 종목 브리핑(뉴스 ~10건)은 4096으로 충분했지만, 전체 시황(뉴스 ~20건)은
+            # facts 목록이 길어져 4096에서 응답이 중간에 잘리는 걸 실측으로 확인함
+            # (pydantic "EOF while parsing a string" 에러). 여유 있게 8192로.
+            max_tokens=8192,
+        )
 
     def render_briefing(
         self,
@@ -62,7 +102,25 @@ class ClaudeBriefingLLMClient(BriefingLLMClient):
         depth: str,
         language: str,
     ) -> BriefingRender:
-        # TODO:
-        #   user_prompt 조립 (프롬프트템플릿.md 2단계 "User (렌즈 슬롯)" 형식)
-        #   RENDER_SYSTEM_PROMPT 로 호출 후 BriefingRender.model_validate_json() 파싱
-        raise NotImplementedError("Claude API 연동 전입니다 — LLM API 종류 확정 후 구현 예정")
+        user_prompt = (
+            f"[분석 카테고리 focus] {', '.join(categories) if categories else '(미지정 — 전체 시장 관점)'}\n"
+            f"[분석 성향] {preset_persona or '기본 — 균형 잡힌 시각으로 서술'}\n"
+            f"[심층도] {depth}\n"
+            f"[언어] {language}\n\n"
+            f"[사실 데이터 facts JSON]\n{facts.model_dump_json()}"
+        )
+        return self._parse_with_retry(
+            system_prompt=RENDER_SYSTEM_PROMPT,
+            user_prompt=user_prompt,
+            output_format=BriefingRender,
+            max_tokens=6144,
+        )
+
+    def render_market_overview(self, *, facts: FactsExtraction) -> MarketOverviewRender:
+        user_prompt = f"[사실 데이터 facts JSON]\n{facts.model_dump_json()}"
+        return self._parse_with_retry(
+            system_prompt=MARKET_SYSTEM_PROMPT,
+            user_prompt=user_prompt,
+            output_format=MarketOverviewRender,
+            max_tokens=6144,
+        )

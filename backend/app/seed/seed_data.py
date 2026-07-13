@@ -2,6 +2,13 @@
 초기 시드 데이터 투입 스크립트.
 DB스키마.md 4절 / 분석카테고리.md 기준. 이미 데이터가 있으면 건너뛴다 (idempotent).
 
+섹터 체계는 app/services/sector_classifier.py의 INDUSTRY_TO_SECTOR와 1:1로 맞춘
+GICS 계열 분류다 — "빅테크"는 공식 분류 체계에 없는 비공식 개념이라 폐기했다
+(AAPL=Technology, GOOGL=Communication Services, AMZN=Consumer Discretionary로
+서로 다른 GICS 섹터임을 실측 확인함). seed_stocks는 이미 있는 종목이라도
+섹터가 옛 체계("빅테크" 등)로 남아 있으면 새 섹터로 갱신하고, 더 이상 아무
+종목도 참조하지 않는 옛 섹터는 정리한다.
+
 사용법: python -m app.seed.seed_data
 """
 
@@ -13,25 +20,42 @@ from app.models.analysis import AnalysisCategory, AnalysisPreset
 from app.models.sector import Sector
 from app.models.stock import Stock
 
+# (name_ko, name_en) — sector_classifier.py의 INDUSTRY_TO_SECTOR 매핑값과 이름을 맞춰야 한다.
 SECTORS = [
     ("반도체·AI", "Semiconductors & AI"),
-    ("빅테크", "Big Tech"),
-    ("전기차", "EV"),
+    ("테크·소프트웨어", "Technology & Software"),
+    ("미디어·인터넷", "Media & Internet"),
+    ("소비재·유통", "Consumer & Retail"),
+    ("자동차", "Automobiles"),
     ("금융", "Financials"),
+    ("헬스케어", "Health Care"),
+    ("에너지", "Energy"),
+    ("산업재", "Industrials"),
+    ("통신", "Telecommunications"),
+    ("부동산", "Real Estate"),
+    ("소재", "Materials"),
+    ("유틸리티", "Utilities"),
 ]
 
+# 더 이상 안 쓰는 옛 섹터 이름 — 참조하는 종목이 없으면 정리 대상.
+DEPRECATED_SECTOR_NAMES = ["빅테크", "전기차"]
+
+# 옛 섹터와 함께 폐기된 analysis_categories 코드 (sector 타입, "빅테크"/"전기차" 대응).
+DEPRECATED_CATEGORY_CODES = ["BIGTECH", "EV"]
+
 # (ticker, name_ko, name_en, exchange, sector_name_ko)
+# GICS 기준 실제 finnhubIndustry 실측값으로 재분류함 (sector_classifier.py 참고).
 STOCKS = [
     ("NVDA", "엔비디아", "NVIDIA Corp.", "NASDAQ", "반도체·AI"),
     ("AVGO", "브로드컴", "Broadcom Inc.", "NASDAQ", "반도체·AI"),
     ("AMD", "AMD", "Advanced Micro Devices", "NASDAQ", "반도체·AI"),
-    ("AAPL", "애플", "Apple Inc.", "NASDAQ", "빅테크"),
-    ("MSFT", "마이크로소프트", "Microsoft Corp.", "NASDAQ", "빅테크"),
-    ("AMZN", "아마존", "Amazon.com Inc.", "NASDAQ", "빅테크"),
-    ("GOOGL", "알파벳", "Alphabet Inc.", "NASDAQ", "빅테크"),
-    ("NFLX", "넷플릭스", "Netflix Inc.", "NASDAQ", "빅테크"),
-    ("META", "메타", "Meta Platforms Inc.", "NASDAQ", "빅테크"),
-    ("TSLA", "테슬라", "Tesla Inc.", "NASDAQ", "전기차"),
+    ("AAPL", "애플", "Apple Inc.", "NASDAQ", "테크·소프트웨어"),
+    ("MSFT", "마이크로소프트", "Microsoft Corp.", "NASDAQ", "테크·소프트웨어"),
+    ("AMZN", "아마존", "Amazon.com Inc.", "NASDAQ", "소비재·유통"),
+    ("GOOGL", "알파벳", "Alphabet Inc.", "NASDAQ", "미디어·인터넷"),
+    ("NFLX", "넷플릭스", "Netflix Inc.", "NASDAQ", "미디어·인터넷"),
+    ("META", "메타", "Meta Platforms Inc.", "NASDAQ", "미디어·인터넷"),
+    ("TSLA", "테슬라", "Tesla Inc.", "NASDAQ", "자동차"),
 ]
 
 # (code, name_ko, name_en, type, description)
@@ -52,12 +76,18 @@ ANALYSIS_CATEGORIES = [
     ("GDP", "실질 GDP 성장률", "Real GDP Growth", "indicator", "경기 체력"),
     ("FOMC", "FOMC 회의·발언", "FOMC Meeting", "indicator", "금리 결정 이벤트"),
     ("SEMI", "반도체·AI 하드웨어", "Semiconductors/AI", "sector", None),
-    ("BIGTECH", "빅테크", "Big Tech", "sector", None),
-    ("EV", "전기차·2차전지", "EV/Battery", "sector", None),
+    ("TECH", "테크·소프트웨어", "Technology & Software", "sector", None),
+    ("MEDIA", "미디어·인터넷", "Media & Internet", "sector", None),
+    ("CONSUMER", "소비재·유통", "Consumer & Retail", "sector", None),
+    ("AUTO", "자동차", "Automobiles", "sector", None),
     ("FIN", "금융", "Financials", "sector", None),
     ("HEALTH", "헬스케어·바이오", "Healthcare/Biotech", "sector", None),
     ("ENERGY", "에너지", "Energy", "sector", None),
-    ("CONSUMER", "소비재", "Consumer", "sector", None),
+    ("INDUST", "산업재", "Industrials", "sector", None),
+    ("TELECOM", "통신", "Telecommunications", "sector", None),
+    ("REALESTATE", "부동산", "Real Estate", "sector", None),
+    ("MATERIALS", "소재", "Materials", "sector", None),
+    ("UTIL", "유틸리티", "Utilities", "sector", None),
     ("AI_DC", "AI·데이터센터", "AI/Datacenter", "theme", None),
     ("DIVIDEND", "배당·인컴", "Dividend/Income", "theme", None),
     ("EARNINGS", "실적·밸류에이션", "Earnings/Valuation", "theme", None),
@@ -87,9 +117,14 @@ def seed_sectors(db: Session) -> dict[str, Sector]:
 
 
 def seed_stocks(db: Session, sectors: dict[str, Sector]) -> None:
-    existing_tickers = {s.ticker for s in db.scalars(select(Stock)).all()}
+    existing = {s.ticker: s for s in db.scalars(select(Stock)).all()}
     for ticker, name_ko, name_en, exchange, sector_name in STOCKS:
-        if ticker in existing_tickers:
+        target_sector_id = sectors[sector_name].id
+        if ticker in existing:
+            # 옛 섹터 체계("빅테크" 등)로 남아 있으면 새 섹터로 갱신.
+            stock = existing[ticker]
+            if stock.sector_id != target_sector_id:
+                stock.sector_id = target_sector_id
             continue
         db.add(
             Stock(
@@ -97,9 +132,32 @@ def seed_stocks(db: Session, sectors: dict[str, Sector]) -> None:
                 name_ko=name_ko,
                 name_en=name_en,
                 exchange=exchange,
-                sector_id=sectors[sector_name].id,
+                sector_id=target_sector_id,
             )
         )
+    db.commit()
+
+
+def cleanup_deprecated_sectors(db: Session) -> None:
+    """더 이상 참조하는 종목이 없는 옛 섹터를 정리한다."""
+    for name_ko in DEPRECATED_SECTOR_NAMES:
+        sector = db.scalar(select(Sector).where(Sector.name_ko == name_ko))
+        if not sector:
+            continue
+        still_used = db.scalar(select(Stock).where(Stock.sector_id == sector.id))
+        if still_used is None:
+            db.delete(sector)
+            print(f"옛 섹터 정리: {name_ko}")
+    db.commit()
+
+
+def cleanup_deprecated_categories(db: Session) -> None:
+    """옛 섹터("빅테크"/"전기차")와 함께 폐기된 analysis_categories 코드를 정리한다."""
+    for code in DEPRECATED_CATEGORY_CODES:
+        cat = db.scalar(select(AnalysisCategory).where(AnalysisCategory.code == code))
+        if cat:
+            db.delete(cat)
+            print(f"옛 카테고리 정리: {code}")
     db.commit()
 
 
@@ -128,7 +186,9 @@ def run() -> None:
     try:
         sectors = seed_sectors(db)
         seed_stocks(db, sectors)
+        cleanup_deprecated_sectors(db)
         seed_analysis_categories(db)
+        cleanup_deprecated_categories(db)
         seed_analysis_presets(db)
         print("시드 데이터 투입 완료")
     finally:

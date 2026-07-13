@@ -22,10 +22,11 @@ export const INVESTOR_TYPES = {
   aggressive: { name: '공격형', desc: '높은 변동성을 감수하고 수익을 추구합니다.' },
 };
 
+// 하루 4번(장시작·장중·장마감·휴장 중 1회) 수집 주기 기준 — n일 = 4n회.
 export const PERIODS = {
-  overnight: { label: '밤사이', since: '오늘 새벽 마감', mult: 1 },
-  '3d': { label: '지난 3일', since: '지난 3일', mult: 3 },
-  week: { label: '지난주', since: '지난주', mult: 5 },
+  '1d': { label: '하루 (최근 4회)', since: '최근 하루', mult: 4 },
+  '3d': { label: '3일 (최근 12회)', since: '최근 3일', mult: 12 },
+  '7d': { label: '7일 (최근 28회)', since: '최근 7일', mult: 28 },
 };
 
 // 백엔드 sentiment: "positive" | "neutral" | "negative" | null
@@ -44,17 +45,53 @@ export const REC_LENS = {
     alt: { cats: ['SOX', 'SEMI'], preset: 'MOMENTUM',
       why: '반도체는 실적 서프라이즈와 수급에 따라 단기 변동성이 크기 때문에, 촉매 이벤트를 빠르게 포착하는 모멘텀 관점도 유효합니다.' },
   },
-  BIGTECH: {
-    primary: { cats: ['IXIC', 'US10Y', 'BIGTECH'], preset: 'MACRO',
-      why: '빅테크는 나스닥 지수와 동조화가 강하고 금리 변화에 밸류에이션이 민감해, 거시 지표를 함께 보는 냉정한 시각이 유리합니다.' },
-    alt: { cats: ['IXIC', 'BIGTECH'], preset: 'FACT',
+  TECH: {
+    primary: { cats: ['IXIC', 'US10Y', 'TECH'], preset: 'MACRO',
+      why: '테크·소프트웨어 종목은 나스닥 지수와 동조화가 강하고 금리 변화에 밸류에이션이 민감해, 거시 지표를 함께 보는 냉정한 시각이 유리합니다.' },
+    alt: { cats: ['IXIC', 'TECH'], preset: 'FACT',
       why: '해석보다 실적·발표 사실 자체를 빠르게 확인하고 싶다면 팩트 브리핑이 더 적합합니다.' },
   },
-  EV: {
-    primary: { cats: ['RUT', 'FFR', 'EV'], preset: 'MOMENTUM',
-      why: '전기차 섹터는 인도량·정책 변화에 따른 단기 변동성이 크고 중소형주 지수(러셀2000)·금리 흐름의 영향을 함께 받아 모멘텀 관점이 유효합니다.' },
-    alt: { cats: ['EV'], preset: 'BEGINNER',
+  MEDIA: {
+    primary: { cats: ['IXIC', 'MEDIA', 'EARNINGS'], preset: 'FACT',
+      why: '미디어·인터넷 종목은 광고 매출·이용자 지표 등 실적 발표에 따른 변동이 커 사실 위주로 확인하는 것이 유용합니다.' },
+    alt: { cats: ['IXIC', 'MEDIA'], preset: 'MACRO',
+      why: '나스닥 지수와 동조화되고 금리에 밸류에이션이 민감한 성장주 성격도 있어 거시 관점도 함께 참고할 만합니다.' },
+  },
+  AUTO: {
+    primary: { cats: ['RUT', 'FFR', 'AUTO'], preset: 'MOMENTUM',
+      why: '자동차 섹터는 인도량·정책 변화에 따른 단기 변동성이 크고 중소형주 지수(러셀2000)·금리 흐름의 영향을 함께 받아 모멘텀 관점이 유효합니다.' },
+    alt: { cats: ['AUTO'], preset: 'BEGINNER',
       why: '산업 배경 지식이 아직 낯설다면 용어를 풀어 설명하는 입문자용 렌즈로 먼저 감을 잡는 것을 추천합니다.' },
+  },
+  INDUST: {
+    primary: { cats: ['PMI', 'GDP', 'INDUST'], preset: 'MACRO',
+      why: '산업재는 경기 사이클과 제조업 지표(PMI)에 밀접하게 연동돼 거시 흐름을 함께 보는 것이 중요합니다.' },
+    alt: { cats: ['INDUST'], preset: 'VALUE',
+      why: '경기 순환에도 불구하고 장기적으로는 펀더멘털에 수렴하는 경향이 있어 가치투자 관점도 유효합니다.' },
+  },
+  TELECOM: {
+    primary: { cats: ['TELECOM', 'DIVIDEND'], preset: 'VALUE',
+      why: '통신주는 안정적인 현금흐름과 배당 매력이 있어 장기 가치투자 관점이 잘 맞습니다.' },
+    alt: { cats: ['TELECOM'], preset: 'FACT',
+      why: '설비투자·요금제 변화 등 사실 자체를 빠르게 확인하고 싶다면 팩트 브리핑이 적합합니다.' },
+  },
+  REALESTATE: {
+    primary: { cats: ['US10Y', 'REALESTATE'], preset: 'MACRO',
+      why: '부동산(리츠 등)은 금리 변화에 밸류에이션이 직접적으로 반응해 거시 지표 위주로 보는 것이 효과적입니다.' },
+    alt: { cats: ['REALESTATE', 'DIVIDEND'], preset: 'VALUE',
+      why: '배당 매력이 있는 부동산 종목이라면 장기 가치투자 관점으로 접근하는 것도 유효합니다.' },
+  },
+  MATERIALS: {
+    primary: { cats: ['MATERIALS', 'GEOPOL'], preset: 'MACRO',
+      why: '소재 섹터는 원자재 가격과 지정학 이슈에 크게 좌우되어 거시 흐름을 함께 보는 것이 중요합니다.' },
+    alt: { cats: ['MATERIALS'], preset: 'FACT',
+      why: '원자재 가격·생산량 등 사실 위주로 빠르게 확인하고 싶다면 팩트 브리핑이 적합합니다.' },
+  },
+  UTIL: {
+    primary: { cats: ['UTIL', 'US10Y'], preset: 'VALUE',
+      why: '유틸리티는 안정적인 현금흐름과 배당이 특징이지만 금리에 밸류에이션이 민감해 장기 가치투자 관점이 유효합니다.' },
+    alt: { cats: ['UTIL', 'DIVIDEND'], preset: 'MACRO',
+      why: '금리 흐름에 따른 밸류에이션 변화를 함께 보고 싶다면 거시 분석 관점도 참고할 만합니다.' },
   },
   FIN: {
     primary: { cats: ['FFR', 'US10Y', 'FIN'], preset: 'MACRO',
