@@ -6,6 +6,7 @@ from app.crud.stock import get_stock, list_stocks
 from app.db.session import get_db
 from app.models.sector import Sector
 from app.schemas.stock import SectorRead, StockWithSector
+from app.services.volatility_cache import TODAY_RESULTS_FILE, read_json
 
 router = APIRouter(tags=["stocks"])
 
@@ -13,6 +14,18 @@ router = APIRouter(tags=["stocks"])
 @router.get("/stocks", response_model=list[StockWithSector])
 def search_stocks(search: str | None = None, db: Session = Depends(get_db)):
     return list_stocks(db, search)
+
+
+@router.get("/stocks/volatility/today")
+def read_today_volatility():
+    """Serve cached results; API requests never trigger bulk Yahoo downloads."""
+    payload = read_json(TODAY_RESULTS_FILE)
+    if payload is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Volatility scan is not ready. Run the daily and premarket scan phases first.",
+        )
+    return payload
 
 
 @router.get("/stocks/{ticker}", response_model=StockWithSector)

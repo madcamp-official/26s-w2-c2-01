@@ -29,6 +29,8 @@ class Settings(BaseSettings):
     # (서머타임 기준 — 09:30~16:00 ET = 22:30~05:00 KST를 정시로 반올림함.
     #  겨울철(EST)엔 미장이 1시간씩 밀리니 그 기간엔 23,3,6,14 정도로 조정 필요.)
     ENABLE_SCHEDULER: bool = True
+    # Full-universe yfinance scan, independently switchable from news jobs.
+    ENABLE_VOLATILITY_SCANNER: bool = True
     REFRESH_HOURS_KST: str = "2,5,14,22"
     # 위 스케줄의 최대 간격(05시->14시, 9시간)에 맞춘 캐시 신선도 기준.
     # 이보다 짧게 잡으면 다음 정기 갱신 전에 사용자가 브리핑을 열 때마다
