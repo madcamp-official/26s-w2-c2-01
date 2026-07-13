@@ -123,3 +123,31 @@ class VolatilityScannerTest(TestCase):
         frame.loc[frame.index[-1], "Close"] = float("nan")
         scanner = self.make_scanner(lambda **_: frame)
         self.assertEqual({}, scanner.scan_daily(["TEST"]))
+
+    def test_liquidity_group_rescues_ticker_missed_by_attention_ranking(self) -> None:
+        """그룹 A(어제 변동성)에서 잘렸어도 그룹 B'(거래대금 상위)에 걸리면 살아남아야 한다."""
+        scanner = VolatilityScanner(
+            ScannerConfig(candidate_limit=1, liquidity_candidate_count=1, request_pause_seconds=0),
+            download=lambda **_: pd.DataFrame(),
+        )
+        metrics = {
+            "HOT": {"ticker": "HOT", "daily_attention_score": 90.0, "average_dollar_volume_20d": 1_000_000.0},
+            "LIQUID": {"ticker": "LIQUID", "daily_attention_score": 1.0, "average_dollar_volume_20d": 500_000_000.0},
+            "NEITHER": {"ticker": "NEITHER", "daily_attention_score": 2.0, "average_dollar_volume_20d": 2_000_000.0},
+        }
+        merged = scanner._rank_daily_candidates(metrics)
+        self.assertEqual({"HOT", "LIQUID"}, set(merged))
+        self.assertEqual(["attention"], merged["HOT"]["candidate_source"])
+        self.assertEqual(["liquidity"], merged["LIQUID"]["candidate_source"])
+
+    def test_ticker_topping_both_groups_is_not_duplicated(self) -> None:
+        scanner = VolatilityScanner(
+            ScannerConfig(candidate_limit=1, liquidity_candidate_count=1, request_pause_seconds=0),
+            download=lambda **_: pd.DataFrame(),
+        )
+        metrics = {
+            "BOTH": {"ticker": "BOTH", "daily_attention_score": 90.0, "average_dollar_volume_20d": 500_000_000.0},
+        }
+        merged = scanner._rank_daily_candidates(metrics)
+        self.assertEqual({"BOTH"}, set(merged))
+        self.assertEqual(["attention", "liquidity"], merged["BOTH"]["candidate_source"])

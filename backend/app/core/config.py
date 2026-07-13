@@ -22,6 +22,7 @@ class Settings(BaseSettings):
 
     FINNHUB_API_KEY: str = ""
     ANTHROPIC_API_KEY: str = ""
+    POLYGON_API_KEY: str = ""
 
     # 브리핑 자동 갱신 스케줄러 (뉴스 재수집 + 브리핑 재생성)
     # 등간격이 아니라 미국 장(나스닥·뉴욕) 스케줄에 맞춘 하루 4번 고정 시각(KST):

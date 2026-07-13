@@ -17,6 +17,7 @@ from sqlalchemy import func, select
 from app.db.session import SessionLocal
 from app.models.stock import Stock
 from app.models.news_article import NewsArticle
+from app.services.polygon_client import PolygonNotConfigured, fetch_daily_history_bulk
 from app.services.volatility_cache import (
     DAILY_CANDIDATES_FILE,
     cache_daily_candidates,
@@ -26,19 +27,42 @@ from app.services.volatility_cache import (
 from app.services.volatility_scanner import ScannerConfig, VolatilityScanner
 
 
+# OTC(OOTC) 종목은 stocks 테이블의 73%(13,479/18,436)를 차지하지만 야후 파이낸스에
+# 데이터가 거의 없어("possibly delisted") 스캔 시간만 잡아먹고 결과에도 안 잡힌다.
+# 실제 거래 가능한 주요 거래소만 대상으로 삼는다.
+SCANNABLE_EXCHANGES = ["NASDAQ", "NYSE", "NYSE American", "CBOE BZX"]
+
+
 def load_universe() -> list[str]:
     db = SessionLocal()
     try:
-        return list(db.scalars(select(Stock.ticker).order_by(Stock.ticker)).all())
+        stmt = (
+            select(Stock.ticker)
+            .where(Stock.exchange.in_(SCANNABLE_EXCHANGES))
+            .order_by(Stock.ticker)
+        )
+        return list(db.scalars(stmt).all())
     finally:
         db.close()
 
 
 def run_daily(scanner: VolatilityScanner, universe: list[str] | None = None) -> dict:
+    """Step 1(사전 필터링). POLYGON_API_KEY가 설정돼 있으면 Grouped Daily로 전체
+    유니버스를 한 번에(호출 ~21회, 무료 티어 분당 5회 제한 준수) 받아온다 — yfinance처럼
+    종목당 요청이 필요 없어 대량 유니버스에서도 Cloudflare 차단 위험이 없다.
+    미설정이면 기존 yfinance 청크 다운로드로 폴백한다."""
     tickers = universe if universe is not None else load_universe()
-    candidates = scanner.scan_daily(tickers)
+    try:
+        frames = fetch_daily_history_bulk(lookback_days=scanner.config.lookback_days + 1)
+        ticker_set = set(tickers)
+        frames = {t: f for t, f in frames.items() if t in ticker_set}
+        candidates = scanner.scan_daily_from_frames(frames)
+        print(f"Step 1 complete (Polygon Grouped Daily): {len(frames)}/{len(tickers)} tickers matched, {len(candidates)} candidates")
+    except PolygonNotConfigured:
+        print("POLYGON_API_KEY 미설정 — yfinance 청크 다운로드로 폴백합니다 (느리고 차단 위험 있음)")
+        candidates = scanner.scan_daily(tickers)
+        print(f"Step 1 complete (yfinance): {len(tickers)} scanned, {len(candidates)} candidates")
     payload = cache_daily_candidates(candidates)
-    print(f"Step 1 complete: {len(tickers)} scanned, {len(candidates)} candidates")
     return payload
 
 
@@ -74,7 +98,8 @@ def run_premarket(scanner: VolatilityScanner) -> dict:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run the US equity volatility scanner")
     parser.add_argument("phase", choices=("daily", "premarket", "full"))
-    parser.add_argument("--chunk-size", type=int, default=50)
+    parser.add_argument("--chunk-size", type=int, default=100)
+    parser.add_argument("--max-workers", type=int, default=3, help="concurrent chunk downloads per batch (only affects yfinance calls: Step 2, or Step 1 fallback without POLYGON_API_KEY)")
     parser.add_argument("--pause", type=float, default=1.5)
     parser.add_argument("--blue-chip-market-cap", type=int, default=2_000_000_000)
     args = parser.parse_args()
@@ -82,6 +107,7 @@ def main() -> None:
     scanner = VolatilityScanner(
         ScannerConfig(
             daily_chunk_size=args.chunk_size,
+            max_workers=args.max_workers,
             request_pause_seconds=args.pause,
             blue_chip_market_cap_usd=args.blue_chip_market_cap,
         )

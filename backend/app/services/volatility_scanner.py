@@ -5,9 +5,12 @@ from __future__ import annotations
 import logging
 import math
 import time
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import time as dt_time
-from typing import Any, Callable, Iterable, Mapping
+from typing import Any, Callable, Iterable, Mapping, TypeVar
+
+T = TypeVar("T")
 
 import pandas as pd
 import yfinance as yf
@@ -21,12 +24,26 @@ class ScannerConfig:
     bollinger_std_multiplier: float = 2.0
     daily_period: str = "3mo"
     minute_period: str = "7d"
-    daily_chunk_size: int = 50
+    daily_chunk_size: int = 100
     minute_chunk_size: int = 25
+    # Step 2로 넘어가는 후보군 = 그룹 A(candidate_limit, 어제 변동성 상위) ∪
+    # 그룹 B'(liquidity_candidate_count, 거래대금 상위 — 어제 점수 무관).
+    # B'가 있어야 "어제는 조용했지만 늘 거래량 많은 대형주가 오늘 뉴스로 갭 뜨는"
+    # 경우를 놓치지 않는다. 둘 다 Step 1에서 이미 받은 지표를 정렬만 다르게
+    # 하는 것이라 API 호출이 추가로 들지 않는다.
     candidate_limit: int = 500
+    liquidity_candidate_count: int = 250
     market_cap_lookup_limit: int = 100
     request_pause_seconds: float = 1.5
     request_timeout_seconds: float = 20.0
+    # Chunks within one batch download concurrently via ThreadPoolExecutor; the
+    # pause happens between batches, not between every single chunk.
+    # Empirically confirmed: 8 concurrent workers triggers Yahoo's Cloudflare
+    # rate limiter (YFRateLimitError) almost immediately, even against a
+    # filtered ~5k-ticker universe. Now that Step 1 runs through Polygon
+    # Grouped Daily instead, this only governs Step 2 (a much smaller
+    # candidate set) — keep it conservative.
+    max_workers: int = 3
     blue_chip_market_cap_usd: int = 2_000_000_000
     blue_chip_min_dollar_volume: int = 20_000_000
     all_stock_min_dollar_volume: int = 1_000_000
@@ -55,13 +72,17 @@ class ScannerConfig:
             self.daily_chunk_size,
             self.minute_chunk_size,
             self.candidate_limit,
+            self.liquidity_candidate_count,
             self.market_cap_lookup_limit,
             self.top_n,
+            self.max_workers,
         )
         if any(value < 1 for value in positive):
-            raise ValueError("chunk sizes, limits and top_n must be positive")
+            raise ValueError("chunk sizes, limits, top_n and max_workers must be positive")
         if self.request_pause_seconds < 0:
             raise ValueError("request_pause_seconds cannot be negative")
+        if self.max_workers > 10:
+            raise ValueError("max_workers above 10 risks Cloudflare throttling/bans — keep it in 5-10")
         weight_sum = (
             self.gap_weight
             + self.premarket_volume_weight
@@ -101,6 +122,27 @@ class VolatilityScanner:
     def _chunks(values: list[str], size: int) -> Iterable[list[str]]:
         for start in range(0, len(values), size):
             yield values[start : start + size]
+
+    @staticmethod
+    def _batches(values: list[T], size: int) -> Iterable[list[T]]:
+        """Group items (ticker chunks, or dicts for market-cap lookups) into batches of
+        `size` — one ThreadPoolExecutor round per batch."""
+        for start in range(0, len(values), size):
+            yield values[start : start + size]
+
+    def _download_batch(self, chunks: list[list[str]], **download_kwargs: Any) -> dict[int, pd.DataFrame]:
+        """Download every chunk in a batch concurrently; failures degrade to an empty frame."""
+
+        def fetch(chunk: list[str]) -> pd.DataFrame:
+            try:
+                return self._download(tickers=chunk, **download_kwargs)
+            except Exception as exc:
+                logger.warning("Download failed for %s: %s", ",".join(chunk), exc)
+                return pd.DataFrame()
+
+        with ThreadPoolExecutor(max_workers=self.config.max_workers) as pool:
+            results = list(pool.map(fetch, chunks))
+        return dict(enumerate(results))
 
     @staticmethod
     def _finite_number(value: Any) -> float | None:
@@ -225,36 +267,83 @@ class VolatilityScanner:
         }
 
     def scan_daily(self, universe: Iterable[str]) -> dict[str, dict[str, Any]]:
-        """Calculate daily metrics and retain a bounded liquid candidate pool."""
+        """Calculate daily metrics and retain a bounded liquid candidate pool.
+
+        Chunks are downloaded `max_workers` at a time via a thread pool; the
+        pause only happens between batches, not between every chunk, so total
+        wall-clock time is roughly (chunks / max_workers) instead of chunks.
+        """
         tickers = self._normalise_tickers(universe)
         metrics_by_ticker: dict[str, dict[str, Any]] = {}
         chunks = list(self._chunks(tickers, self.config.daily_chunk_size))
-        for chunk_index, chunk in enumerate(chunks):
-            try:
-                downloaded = self._download(
-                    tickers=chunk, period=self.config.daily_period, interval="1d",
-                    group_by="ticker", auto_adjust=False, actions=False, threads=False,
-                    progress=False, timeout=self.config.request_timeout_seconds,
-                )
-            except Exception as exc:
-                logger.warning("Daily download failed for %s: %s", ",".join(chunk), exc)
-                downloaded = pd.DataFrame()
-            for ticker in chunk:
-                try:
-                    metrics = self._daily_metrics(ticker, self._ticker_frame(downloaded, ticker))
-                    if metrics and metrics["average_dollar_volume_20d"] >= self.config.all_stock_min_dollar_volume:
-                        metrics_by_ticker[ticker] = metrics
-                except Exception as exc:
-                    logger.warning("Skipping malformed daily data for %s: %s", ticker, exc)
-            if chunk_index < len(chunks) - 1 and self.config.request_pause_seconds:
+        batches = list(self._batches(chunks, self.config.max_workers))
+
+        for batch_index, batch in enumerate(batches):
+            downloaded_by_index = self._download_batch(
+                batch, period=self.config.daily_period, interval="1d",
+                group_by="ticker", auto_adjust=False, actions=False, threads=False,
+                progress=False, timeout=self.config.request_timeout_seconds,
+            )
+            for chunk_position, chunk in enumerate(batch):
+                downloaded = downloaded_by_index[chunk_position]
+                for ticker in chunk:
+                    try:
+                        metrics = self._daily_metrics(ticker, self._ticker_frame(downloaded, ticker))
+                        if metrics and metrics["average_dollar_volume_20d"] >= self.config.all_stock_min_dollar_volume:
+                            metrics_by_ticker[ticker] = metrics
+                    except Exception as exc:
+                        logger.warning("Skipping malformed daily data for %s: %s", ticker, exc)
+            if batch_index < len(batches) - 1 and self.config.request_pause_seconds:
                 self._sleep(self.config.request_pause_seconds)
 
-        ranked = sorted(
-            metrics_by_ticker.values(),
-            key=lambda item: (item["daily_attention_score"], item["ticker"]),
-            reverse=True,
+        return self._rank_daily_candidates(metrics_by_ticker)
+
+    def _rank_daily_candidates(self, metrics_by_ticker: Mapping[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
+        """Step 2 후보군 = 그룹 A(어제 변동성 상위) ∪ 그룹 B'(거래대금 상위, 어제
+        점수 무관). 둘 다 이미 계산된 지표를 다른 기준으로 정렬만 하는 것이라
+        추가 네트워크 호출은 없다. 각 종목이 어느 그룹에서 왔는지
+        candidate_source에 남겨 나중에 UI/로그에서 이유를 설명할 수 있게 한다."""
+        items = list(metrics_by_ticker.values())
+
+        group_a = sorted(
+            items, key=lambda item: (item["daily_attention_score"], item["ticker"]), reverse=True
         )[: self.config.candidate_limit]
-        return {item["ticker"]: item for item in ranked}
+        group_b = sorted(
+            items, key=lambda item: (item["average_dollar_volume_20d"], item["ticker"]), reverse=True
+        )[: self.config.liquidity_candidate_count]
+
+        a_tickers = {item["ticker"] for item in group_a}
+        b_tickers = {item["ticker"] for item in group_b}
+
+        merged: dict[str, dict[str, Any]] = {}
+        for item in group_a + group_b:
+            ticker = item["ticker"]
+            if ticker in merged:
+                continue
+            sources = [
+                name for name, in_group in (("attention", ticker in a_tickers), ("liquidity", ticker in b_tickers)) if in_group
+            ]
+            merged[ticker] = {**item, "candidate_source": sources}
+        return merged
+
+    def evaluate_daily_frame(self, ticker: str, frame: pd.DataFrame) -> dict[str, Any] | None:
+        """Public entry point for feeding a pre-fetched OHLCV frame (e.g. built from
+        Polygon Grouped Daily snapshots) through the same factor math as scan_daily,
+        without going through yfinance at all."""
+        return self._daily_metrics(ticker, frame)
+
+    def scan_daily_from_frames(self, frames_by_ticker: Mapping[str, pd.DataFrame]) -> dict[str, dict[str, Any]]:
+        """Same liquidity filter + ranking as scan_daily, but the caller has already
+        supplied per-ticker OHLCV history (no network calls happen here)."""
+        metrics_by_ticker: dict[str, dict[str, Any]] = {}
+        for ticker, frame in frames_by_ticker.items():
+            try:
+                metrics = self._daily_metrics(ticker, frame)
+                if metrics and metrics["average_dollar_volume_20d"] >= self.config.all_stock_min_dollar_volume:
+                    metrics_by_ticker[ticker] = metrics
+            except Exception as exc:
+                logger.warning("Skipping malformed daily data for %s: %s", ticker, exc)
+        return self._rank_daily_candidates(metrics_by_ticker)
 
     def _premarket_snapshot(self, frame: pd.DataFrame) -> dict[str, Any] | None:
         numeric = frame.copy()
@@ -353,60 +442,82 @@ class VolatilityScanner:
         market_caps: Mapping[str, int | float | None] | None = None,
         news_catalysts: Mapping[str, int | bool] | None = None,
     ) -> dict[str, dict[str, Any]]:
-        """Calculate both up/down pre-market moves and a capped 0-100 attention score."""
+        """Calculate both up/down pre-market moves and a capped 0-100 attention score.
+
+        Same batched-parallel pattern as scan_daily: `max_workers` chunks download
+        concurrently per batch, pause only between batches.
+        """
         tickers = self._normalise_tickers(daily_candidates.keys())
         results: dict[str, dict[str, Any]] = {}
-        for chunk_index, chunk in enumerate(self._chunks(tickers, self.config.minute_chunk_size)):
-            try:
-                downloaded = self._download(
-                    tickers=chunk, period=self.config.minute_period, interval="1m", prepost=True,
-                    group_by="ticker", auto_adjust=False, actions=False, threads=False,
-                    progress=False, timeout=self.config.request_timeout_seconds,
-                )
-            except Exception as exc:
-                logger.warning("Pre-market download failed for %s: %s", ",".join(chunk), exc)
-                downloaded = pd.DataFrame()
-            for ticker in chunk:
-                try:
-                    daily = dict(daily_candidates[ticker])
-                    previous_close = self._finite_number(daily.get("previous_close"))
-                    snapshot = self._premarket_snapshot(self._ticker_frame(downloaded, ticker))
-                    if not previous_close or previous_close <= 0 or not snapshot or snapshot["price"] <= 0:
-                        continue
-                    gap_pct = ((snapshot["price"] - previous_close) / previous_close) * 100
-                    raw_news = news_catalysts.get(ticker, 0) if news_catalysts else 0
-                    news_count = int(raw_news) if not isinstance(raw_news, bool) else int(raw_news)
-                    score, components, volume_method = self._score(daily, snapshot, gap_pct, news_count)
-                    results[ticker] = {
-                        **daily,
-                        "premarket_price": round(snapshot["price"], 6),
-                        "premarket_observed_at": snapshot["observed_at"],
-                        "premarket_gap_pct": round(gap_pct, 4),
-                        "premarket_gap_abs_pct": round(abs(gap_pct), 4),
-                        "premarket_direction": self._direction(gap_pct),
-                        "premarket_volume": snapshot["volume"],
-                        "premarket_average_volume_same_time": snapshot["historical_average_volume"],
-                        "premarket_historical_sessions": snapshot["historical_sessions"],
-                        "premarket_relative_volume": snapshot["relative_volume"],
-                        "premarket_volume_method": volume_method,
-                        "news_catalyst_confirmed": news_count > 0,
-                        "news_catalyst_count": news_count,
-                        "score_components": components,
-                        "volatility_attention_score": score,
-                        "market_cap_usd": None,
-                    }
-                except Exception as exc:
-                    logger.warning("Skipping malformed pre-market data for %s: %s", ticker, exc)
-            if chunk_index < math.ceil(len(tickers) / self.config.minute_chunk_size) - 1 and self.config.request_pause_seconds:
+        chunks = list(self._chunks(tickers, self.config.minute_chunk_size))
+        batches = list(self._batches(chunks, self.config.max_workers))
+
+        for batch_index, batch in enumerate(batches):
+            downloaded_by_index = self._download_batch(
+                batch, period=self.config.minute_period, interval="1m", prepost=True,
+                group_by="ticker", auto_adjust=False, actions=False, threads=False,
+                progress=False, timeout=self.config.request_timeout_seconds,
+            )
+            for chunk_position, chunk in enumerate(batch):
+                downloaded = downloaded_by_index[chunk_position]
+                for ticker in chunk:
+                    try:
+                        daily = dict(daily_candidates[ticker])
+                        previous_close = self._finite_number(daily.get("previous_close"))
+                        snapshot = self._premarket_snapshot(self._ticker_frame(downloaded, ticker))
+                        if not previous_close or previous_close <= 0 or not snapshot or snapshot["price"] <= 0:
+                            continue
+                        gap_pct = ((snapshot["price"] - previous_close) / previous_close) * 100
+                        raw_news = news_catalysts.get(ticker, 0) if news_catalysts else 0
+                        news_count = int(raw_news) if not isinstance(raw_news, bool) else int(raw_news)
+                        score, components, volume_method = self._score(daily, snapshot, gap_pct, news_count)
+                        results[ticker] = {
+                            **daily,
+                            "premarket_price": round(snapshot["price"], 6),
+                            "premarket_observed_at": snapshot["observed_at"],
+                            "premarket_gap_pct": round(gap_pct, 4),
+                            "premarket_gap_abs_pct": round(abs(gap_pct), 4),
+                            "premarket_direction": self._direction(gap_pct),
+                            "premarket_volume": snapshot["volume"],
+                            "premarket_average_volume_same_time": snapshot["historical_average_volume"],
+                            "premarket_historical_sessions": snapshot["historical_sessions"],
+                            "premarket_relative_volume": snapshot["relative_volume"],
+                            "premarket_volume_method": volume_method,
+                            "news_catalyst_confirmed": news_count > 0,
+                            "news_catalyst_count": news_count,
+                            "score_components": components,
+                            "volatility_attention_score": score,
+                            "market_cap_usd": None,
+                        }
+                    except Exception as exc:
+                        logger.warning("Skipping malformed pre-market data for %s: %s", ticker, exc)
+            if batch_index < len(batches) - 1 and self.config.request_pause_seconds:
                 self._sleep(self.config.request_pause_seconds)
 
         ranked = sorted(results.values(), key=lambda item: (item["volatility_attention_score"], item["ticker"]), reverse=True)
-        for item in ranked[: self.config.market_cap_lookup_limit]:
-            ticker = item["ticker"]
-            supplied = market_caps.get(ticker) if market_caps else None
-            cap = self._finite_number(supplied)
-            item["market_cap_usd"] = int(cap) if cap and cap > 0 else self._market_cap(ticker)
+        self._fill_market_caps(ranked[: self.config.market_cap_lookup_limit], market_caps)
         return {item["ticker"]: item for item in ranked}
+
+    def _fill_market_caps(
+        self, items: list[dict[str, Any]], market_caps: Mapping[str, int | float | None] | None
+    ) -> None:
+        """Resolve market cap for the top-ranked items, `max_workers` lookups at a time."""
+        to_fetch: list[dict[str, Any]] = []
+        for item in items:
+            supplied = market_caps.get(item["ticker"]) if market_caps else None
+            cap = self._finite_number(supplied)
+            if cap and cap > 0:
+                item["market_cap_usd"] = int(cap)
+            else:
+                to_fetch.append(item)
+
+        for batch in self._batches(to_fetch, self.config.max_workers):
+            with ThreadPoolExecutor(max_workers=self.config.max_workers) as pool:
+                caps = list(pool.map(lambda it: self._market_cap(it["ticker"]), batch))
+            for item, cap in zip(batch, caps):
+                item["market_cap_usd"] = cap
+            if self.config.request_pause_seconds:
+                self._sleep(self.config.request_pause_seconds)
 
     def build_tabs(self, results: Mapping[str, Mapping[str, Any]]) -> dict[str, Any]:
         ranked = sorted(
