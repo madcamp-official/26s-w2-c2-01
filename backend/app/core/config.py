@@ -27,6 +27,12 @@ class Settings(BaseSettings):
     # 절반으로 줄인다 (factory.py의 HybridBriefingLLMClient). 없으면 Claude만 사용.
     GEMINI_API_KEY: str = ""
 
+    # 로컬 uvicorn 실행에서도 DB가 시드 10개 수준이면 서버 시작 직후 미국 종목 전체
+    # import를 백그라운드로 1회 시도한다. Docker Compose는 command에서 이미 실행하지만,
+    # import_us_stocks.py가 idempotent라 중복 실행돼도 기존 티커는 건너뛴다.
+    AUTO_IMPORT_US_STOCKS: bool = True
+    AUTO_IMPORT_US_STOCKS_THRESHOLD: int = 100
+
     # 브리핑 자동 갱신 스케줄러 (뉴스 재수집 + 브리핑 재생성)
     # 등간격이 아니라 미국 장(나스닥·뉴욕) 스케줄에 맞춘 하루 4번 고정 시각(KST):
     # 장시작 22시 · 장중 02시 · 장마감 05시 · 휴장 중 14시.

@@ -30,6 +30,11 @@ uvicorn app.main:app --reload
 
 서버 실행 후 http://localhost:8000/docs 에서 Swagger UI 확인 가능.
 
+로컬에서 uvicorn만 직접 실행해도 `AUTO_IMPORT_US_STOCKS=true`이면 서버 시작 직후
+`stocks` 테이블이 시드 10개 수준인지 확인하고, 부족하면 `python -m app.seed.import_us_stocks`
+와 같은 미국 종목 전체 import를 백그라운드로 1회 시도한다. API 서버 시작은 막지 않으며,
+이미 `AUTO_IMPORT_US_STOCKS_THRESHOLD`개 이상 들어 있으면 건너뛴다.
+
 Docker Compose로 처음 실행할 때 변동성 캐시가 없거나 DB의 종목 universe가 바뀌었으면
 백엔드가 기동된 뒤 `daily → premarket` 전체 스캔을 백그라운드에서 최초 1회 자동 실행한다.
 정상 캐시가 있으면 재시작 시에는 건너뛰며, 이후에는 평일 정기 스케줄로 갱신한다.

@@ -1,5 +1,7 @@
 .venv/
+.pgdata/
 __pycache__/
+data.nobody/
 data/*.json
 *.pyc
 .env

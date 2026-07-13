@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+from threading import Thread
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -7,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import analysis, auth, briefings, sector_watchlists, stocks, users, watchlists
 from app.core.config import settings
+from app.jobs.bootstrap_stocks import run_startup_stock_import_if_needed
 from app.jobs.scheduler import run_refresh_cycle
 from app.jobs.scan_volatility import run_bootstrap_if_needed as run_volatility_bootstrap
 from app.jobs.scan_volatility import run_daily as run_volatility_daily
@@ -21,6 +23,13 @@ volatility_scanner = VolatilityScanner()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    if settings.AUTO_IMPORT_US_STOCKS:
+        Thread(
+            target=run_startup_stock_import_if_needed,
+            name="startup-stock-import",
+            daemon=True,
+        ).start()
+
     if settings.ENABLE_SCHEDULER:
         # 등간격이 아니라 REFRESH_HOURS_KST(장시작·장중·장마감·휴장 중 1회, 하루 4번)에
         # 맞춰 고정 시각에 실행한다.
