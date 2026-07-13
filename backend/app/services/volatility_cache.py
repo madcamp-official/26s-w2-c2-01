@@ -27,13 +27,26 @@ def read_json(path: Path) -> dict[str, Any] | None:
         return None
 
 
-def cache_daily_candidates(candidates: Mapping[str, Any]) -> dict[str, Any]:
-    payload = {"generated_at": datetime.now(timezone.utc).isoformat(), "candidates": dict(candidates)}
+def cache_daily_candidates(
+    candidates: Mapping[str, Any], *, universe_size: int | None = None
+) -> dict[str, Any]:
+    payload = {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "universe_size": universe_size,
+        "candidates": dict(candidates),
+    }
     write_json(DAILY_CANDIDATES_FILE, payload)
     return payload
 
 
-def cache_today_results(results: Mapping[str, Any]) -> dict[str, Any]:
-    payload = {"generated_at": datetime.now(timezone.utc).isoformat(), **dict(results)}
+def cache_today_results(
+    results: Mapping[str, Any], *, universe_size: int | None = None, candidate_count: int | None = None
+) -> dict[str, Any]:
+    payload = {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "universe_size": universe_size,
+        "candidate_count": candidate_count,
+        **dict(results),
+    }
     write_json(TODAY_RESULTS_FILE, payload)
     return payload

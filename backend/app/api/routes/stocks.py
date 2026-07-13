@@ -20,10 +20,10 @@ def search_stocks(search: str | None = None, db: Session = Depends(get_db)):
 def read_today_volatility():
     """Serve cached results; API requests never trigger bulk Yahoo downloads."""
     payload = read_json(TODAY_RESULTS_FILE)
-    if payload is None:
+    if payload is None or not isinstance(payload.get("universe_size"), int):
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Volatility scan is not ready. Run the daily and premarket scan phases first.",
+            detail="Volatility scan is not ready for the full stock universe. Run the daily and premarket scan phases first.",
         )
     return payload
 

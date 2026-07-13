@@ -20,14 +20,19 @@ cp .env.example .env
 alembic revision --autogenerate -m "init"
 alembic upgrade head
 
-# 5. 시드 데이터
+# 5. 섹터·분석 기준 데이터와 미국 주식 종목
 python -m app.seed.seed_data
+python -m app.seed.import_us_stocks
 
-# 6. 서버 실행
+# 6. 서버 실행 (Docker Compose로 실행할 때는 4~5단계가 자동 수행됨)
 uvicorn app.main:app --reload
 ```
 
 서버 실행 후 http://localhost:8000/docs 에서 Swagger UI 확인 가능.
+
+Docker Compose로 처음 실행할 때 변동성 캐시가 없거나 DB의 종목 universe가 바뀌었으면
+백엔드가 기동된 뒤 `daily → premarket` 전체 스캔을 백그라운드에서 최초 1회 자동 실행한다.
+정상 캐시가 있으면 재시작 시에는 건너뛰며, 이후에는 평일 정기 스케줄로 갱신한다.
 
 ## 구현 범위 (현재)
 

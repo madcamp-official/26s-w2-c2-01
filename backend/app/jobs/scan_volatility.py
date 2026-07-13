@@ -20,6 +20,7 @@ from app.models.news_article import NewsArticle
 from app.services.polygon_client import PolygonNotConfigured, fetch_daily_history_bulk
 from app.services.volatility_cache import (
     DAILY_CANDIDATES_FILE,
+    TODAY_RESULTS_FILE,
     cache_daily_candidates,
     cache_today_results,
     read_json,
@@ -46,6 +47,31 @@ def load_universe() -> list[str]:
         db.close()
 
 
+def cache_matches_universe(payload: dict | None, universe_size: int) -> bool:
+    """Return whether the final cache was built from the current DB universe."""
+    return bool(payload and payload.get("universe_size") == universe_size)
+
+
+def run_bootstrap_if_needed(scanner: VolatilityScanner) -> None:
+    """Build the initial cache once after a fresh DB/import, without blocking API startup."""
+    universe = load_universe()
+    if not universe:
+        print("Volatility bootstrap skipped: stock universe is empty", flush=True)
+        return
+
+    cached = read_json(TODAY_RESULTS_FILE)
+    if cache_matches_universe(cached, len(universe)):
+        print(
+            f"Volatility bootstrap skipped: cache already covers {len(universe)} tickers",
+            flush=True,
+        )
+        return
+
+    print(f"Volatility bootstrap started for {len(universe)} tickers", flush=True)
+    run_daily(scanner, universe=universe)
+    run_premarket(scanner)
+
+
 def run_daily(scanner: VolatilityScanner, universe: list[str] | None = None) -> dict:
     """Step 1(사전 필터링). POLYGON_API_KEY가 설정돼 있으면 Grouped Daily로 전체
     유니버스를 한 번에(호출 ~21회, 무료 티어 분당 5회 제한 준수) 받아온다 — yfinance처럼
@@ -62,7 +88,7 @@ def run_daily(scanner: VolatilityScanner, universe: list[str] | None = None) -> 
         print("POLYGON_API_KEY 미설정 — yfinance 청크 다운로드로 폴백합니다 (느리고 차단 위험 있음)")
         candidates = scanner.scan_daily(tickers)
         print(f"Step 1 complete (yfinance): {len(tickers)} scanned, {len(candidates)} candidates")
-    payload = cache_daily_candidates(candidates)
+    payload = cache_daily_candidates(candidates, universe_size=len(tickers))
     return payload
 
 
@@ -89,7 +115,11 @@ def run_premarket(scanner: VolatilityScanner) -> dict:
         raise RuntimeError("No Step 1 cache. Run the 'daily' phase after market close first.")
     catalysts = load_news_catalysts(list(cached["candidates"]))
     final = scanner.scan_premarket(cached["candidates"], news_catalysts=catalysts)
-    payload = cache_today_results(scanner.build_tabs(final))
+    payload = cache_today_results(
+        scanner.build_tabs(final),
+        universe_size=cached.get("universe_size"),
+        candidate_count=len(cached["candidates"]),
+    )
     print(f"Step 2 complete: {len(cached['candidates'])} candidates, {len(final)} passed")
     print(json.dumps({"all": payload["all"]["tickers"], "blue_chip": payload["blue_chip"]["tickers"]}))
     return payload

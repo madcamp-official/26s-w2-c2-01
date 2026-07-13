@@ -1,13 +1,10 @@
 """
-초기 시드 데이터 투입 스크립트.
+섹터와 분석 설정 등 기준 데이터 투입 스크립트.
 DB스키마.md 4절 / 분석카테고리.md 기준. 이미 데이터가 있으면 건너뛴다 (idempotent).
 
 섹터 체계는 app/services/sector_classifier.py의 INDUSTRY_TO_SECTOR와 1:1로 맞춘
 GICS 계열 분류다 — "빅테크"는 공식 분류 체계에 없는 비공식 개념이라 폐기했다
-(AAPL=Technology, GOOGL=Communication Services, AMZN=Consumer Discretionary로
-서로 다른 GICS 섹터임을 실측 확인함). seed_stocks는 이미 있는 종목이라도
-섹터가 옛 체계("빅테크" 등)로 남아 있으면 새 섹터로 갱신하고, 더 이상 아무
-종목도 참조하지 않는 옛 섹터는 정리한다.
+종목 데이터는 이 파일에 하드코딩하지 않고 import_us_stocks.py에서 가져온다.
 
 사용법: python -m app.seed.seed_data
 """
@@ -42,21 +39,6 @@ DEPRECATED_SECTOR_NAMES = ["빅테크", "전기차"]
 
 # 옛 섹터와 함께 폐기된 analysis_categories 코드 (sector 타입, "빅테크"/"전기차" 대응).
 DEPRECATED_CATEGORY_CODES = ["BIGTECH", "EV"]
-
-# (ticker, name_ko, name_en, exchange, sector_name_ko)
-# GICS 기준 실제 finnhubIndustry 실측값으로 재분류함 (sector_classifier.py 참고).
-STOCKS = [
-    ("NVDA", "엔비디아", "NVIDIA Corp.", "NASDAQ", "반도체·AI"),
-    ("AVGO", "브로드컴", "Broadcom Inc.", "NASDAQ", "반도체·AI"),
-    ("AMD", "AMD", "Advanced Micro Devices", "NASDAQ", "반도체·AI"),
-    ("AAPL", "애플", "Apple Inc.", "NASDAQ", "테크·소프트웨어"),
-    ("MSFT", "마이크로소프트", "Microsoft Corp.", "NASDAQ", "테크·소프트웨어"),
-    ("AMZN", "아마존", "Amazon.com Inc.", "NASDAQ", "소비재·유통"),
-    ("GOOGL", "알파벳", "Alphabet Inc.", "NASDAQ", "미디어·인터넷"),
-    ("NFLX", "넷플릭스", "Netflix Inc.", "NASDAQ", "미디어·인터넷"),
-    ("META", "메타", "Meta Platforms Inc.", "NASDAQ", "미디어·인터넷"),
-    ("TSLA", "테슬라", "Tesla Inc.", "NASDAQ", "자동차"),
-]
 
 # (code, name_ko, name_en, type, description)
 ANALYSIS_CATEGORIES = [
@@ -116,28 +98,6 @@ def seed_sectors(db: Session) -> dict[str, Sector]:
     return {s.name_ko: s for s in db.scalars(select(Sector)).all()}
 
 
-def seed_stocks(db: Session, sectors: dict[str, Sector]) -> None:
-    existing = {s.ticker: s for s in db.scalars(select(Stock)).all()}
-    for ticker, name_ko, name_en, exchange, sector_name in STOCKS:
-        target_sector_id = sectors[sector_name].id
-        if ticker in existing:
-            # 옛 섹터 체계("빅테크" 등)로 남아 있으면 새 섹터로 갱신.
-            stock = existing[ticker]
-            if stock.sector_id != target_sector_id:
-                stock.sector_id = target_sector_id
-            continue
-        db.add(
-            Stock(
-                ticker=ticker,
-                name_ko=name_ko,
-                name_en=name_en,
-                exchange=exchange,
-                sector_id=target_sector_id,
-            )
-        )
-    db.commit()
-
-
 def cleanup_deprecated_sectors(db: Session) -> None:
     """더 이상 참조하는 종목이 없는 옛 섹터를 정리한다."""
     for name_ko in DEPRECATED_SECTOR_NAMES:
@@ -184,13 +144,12 @@ def seed_analysis_presets(db: Session) -> None:
 def run() -> None:
     db = SessionLocal()
     try:
-        sectors = seed_sectors(db)
-        seed_stocks(db, sectors)
+        seed_sectors(db)
         cleanup_deprecated_sectors(db)
         seed_analysis_categories(db)
         cleanup_deprecated_categories(db)
         seed_analysis_presets(db)
-        print("시드 데이터 투입 완료")
+        print("기준 데이터 투입 완료")
     finally:
         db.close()
 
