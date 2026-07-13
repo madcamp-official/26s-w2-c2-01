@@ -168,7 +168,7 @@ svg{display:block}
 .vol-panel-head{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--line);font-size:12px;font-weight:700;color:var(--t2)}
 .vol-panel-head span:last-child{font-size:11px;font-weight:400;color:var(--t3)}
 .vol-list{display:flex;flex-direction:column}
-.vol-row{width:100%;display:grid;grid-template-columns:38px minmax(150px,1.5fr) minmax(110px,1fr) minmax(90px,.8fr) minmax(76px,.7fr) minmax(100px,.9fr) 20px;align-items:center;gap:12px;border:0;border-bottom:1px solid var(--line);background:var(--card);color:var(--t1);padding:15px 18px;text-align:left;font:inherit;cursor:pointer;transition:.12s}
+.vol-row{width:100%;display:grid;grid-template-columns:38px minmax(125px,1.4fr) 72px 84px 82px 92px minmax(92px,.9fr) 20px;align-items:center;gap:10px;border:0;border-bottom:1px solid var(--line);background:var(--card);color:var(--t1);padding:15px 18px;text-align:left;font:inherit;cursor:pointer;transition:.12s}
 .vol-row:last-child{border-bottom:0}
 .vol-row:hover{background:var(--panel)}
 .vol-rank{width:28px;height:28px;border-radius:9px;background:var(--panel);color:var(--t3);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800}
@@ -176,7 +176,7 @@ svg{display:block}
 .vol-company,.vol-primary,.vol-stat{display:flex;flex-direction:column;min-width:0}
 .vol-ticker{font-size:15px;font-weight:800;letter-spacing:.01em}
 .vol-name{font-size:11px;color:var(--t3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.vol-gap{color:var(--pos);font-size:15px;font-weight:800}
+.vol-news{font-size:10px;color:var(--accent);margin-top:2px}.vol-score{color:var(--accent);font-size:20px;font-weight:850;line-height:1.2}
 .vol-label,.vol-stat span{font-size:10.5px;color:var(--t3)}
 .vol-stat b{font-size:13px;font-weight:650;white-space:nowrap}
 .vol-arrow{color:var(--t3)}

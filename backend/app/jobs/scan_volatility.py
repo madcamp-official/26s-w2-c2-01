@@ -10,11 +10,13 @@ from __future__ import annotations
 
 import argparse
 import json
+from datetime import datetime, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.db.session import SessionLocal
 from app.models.stock import Stock
+from app.models.news_article import NewsArticle
 from app.services.volatility_cache import (
     DAILY_CANDIDATES_FILE,
     cache_daily_candidates,
@@ -40,11 +42,29 @@ def run_daily(scanner: VolatilityScanner, universe: list[str] | None = None) -> 
     return payload
 
 
+def load_news_catalysts(tickers: list[str], lookback_hours: int = 72) -> dict[str, int]:
+    """Count recently collected company-news items as a confirmed catalyst signal."""
+    if not tickers:
+        return {}
+    since = datetime.now() - timedelta(hours=lookback_hours)
+    db = SessionLocal()
+    try:
+        rows = db.execute(
+            select(NewsArticle.ticker, func.count(NewsArticle.id))
+            .where(NewsArticle.ticker.in_(tickers), NewsArticle.published_at >= since)
+            .group_by(NewsArticle.ticker)
+        ).all()
+        return {ticker: int(count) for ticker, count in rows if ticker}
+    finally:
+        db.close()
+
+
 def run_premarket(scanner: VolatilityScanner) -> dict:
     cached = read_json(DAILY_CANDIDATES_FILE)
     if not cached or not isinstance(cached.get("candidates"), dict):
         raise RuntimeError("No Step 1 cache. Run the 'daily' phase after market close first.")
-    final = scanner.scan_premarket(cached["candidates"])
+    catalysts = load_news_catalysts(list(cached["candidates"]))
+    final = scanner.scan_premarket(cached["candidates"], news_catalysts=catalysts)
     payload = cache_today_results(scanner.build_tabs(final))
     print(f"Step 2 complete: {len(cached['candidates'])} candidates, {len(final)} passed")
     print(json.dumps({"all": payload["all"]["tickers"], "blue_chip": payload["blue_chip"]["tickers"]}))
@@ -56,7 +76,7 @@ def main() -> None:
     parser.add_argument("phase", choices=("daily", "premarket", "full"))
     parser.add_argument("--chunk-size", type=int, default=50)
     parser.add_argument("--pause", type=float, default=1.5)
-    parser.add_argument("--blue-chip-market-cap", type=int, default=10_000_000_000)
+    parser.add_argument("--blue-chip-market-cap", type=int, default=2_000_000_000)
     args = parser.parse_args()
 
     scanner = VolatilityScanner(
