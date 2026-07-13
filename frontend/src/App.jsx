@@ -150,8 +150,8 @@ export default function App() {
   const [sectorHistoryLoading, setSectorHistoryLoading] = useState(false);
   const [sectorHistoryError, setSectorHistoryError] = useState('');
   useEffect(() => {
-    if (user && view === 'volatility') loadVolatility();
-  }, [user, view, loadVolatility]);
+    if (user && view === 'volatility' && !volatility) loadVolatility();
+  }, [user, view, volatility, loadVolatility]);
   useEffect(() => {
     if (view !== 'briefing' || timeMode !== 'history') return;
     setHistoryLoading(true);

@@ -26,7 +26,7 @@ services:
     environment:
       # ⚠️ 컨테이너 안에서는 DB 주소가 localhost가 아니라 서비스 이름 'db' 입니다.
       DATABASE_URL: postgresql+psycopg://trade_chaser:trade_chaser@db:5432/trade_chaser
-      CORS_ORIGINS: http://localhost:5173,http://localhost:5174
+      CORS_ORIGINS: http://localhost:5173,http://localhost:5174,https://trend-chaser.madcamp-kaist.org
       SECRET_KEY: change-this-to-a-random-secret
       # 아래 키는 backend/.env 에 값이 있으면 자동 주입됩니다(없으면 빈 값 → 스텁 동작).
       FINNHUB_API_KEY: ${FINNHUB_API_KEY:-}
