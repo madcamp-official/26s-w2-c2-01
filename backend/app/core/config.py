@@ -23,6 +23,9 @@ class Settings(BaseSettings):
     FINNHUB_API_KEY: str = ""
     ANTHROPIC_API_KEY: str = ""
     POLYGON_API_KEY: str = ""
+    # 설정돼 있으면 1단계(팩트 추출)를 Gemini 무료 티어로 대체해 Claude 호출을
+    # 절반으로 줄인다 (factory.py의 HybridBriefingLLMClient). 없으면 Claude만 사용.
+    GEMINI_API_KEY: str = ""
 
     # 브리핑 자동 갱신 스케줄러 (뉴스 재수집 + 브리핑 재생성)
     # 등간격이 아니라 미국 장(나스닥·뉴욕) 스케줄에 맞춘 하루 4번 고정 시각(KST):

@@ -1,3 +1,4 @@
+import { useDeferredValue, useMemo } from 'react';
 import { SENT_LABEL } from '../data.js';
 import Icon from './Icon.jsx';
 
@@ -104,24 +105,45 @@ export default function BriefingPage({
   sectorBriefingBySectorId, missingSectorIds,
   sectorHistory, sectorHistoryLoading, sectorHistoryError,
 }) {
-  const watchSet = new Set(watch);
-  const avail = stocks.filter((s) => !watchSet.has(s.ticker));
-  const q = stockSearch.trim().toLowerCase();
-  const filtered = q
-    ? avail.filter((s) => s.ticker.toLowerCase().includes(q) || (s.name_ko || '').toLowerCase().includes(q) || s.name_en.toLowerCase().includes(q))
-    : avail;
+  const deferredStockSearch = useDeferredValue(stockSearch);
+  const deferredSectorSearch = useDeferredValue(sectorSearch);
 
-  const watchStocks = watch.map((t) => stocks.find((s) => s.ticker === t)).filter(Boolean);
-  const stocksByTicker = Object.fromEntries(stocks.map((s) => [s.ticker, s]));
-  const sectorsById = Object.fromEntries(sectors.map((s) => [s.id, s]));
+  const stocksByTicker = useMemo(() => Object.fromEntries(stocks.map((s) => [s.ticker, s])), [stocks]);
+  const sectorsById = useMemo(() => Object.fromEntries(sectors.map((s) => [s.id, s])), [sectors]);
 
-  const sectorWatchSet = new Set(sectorWatch);
-  const availSectors = sectors.filter((s) => !sectorWatchSet.has(s.id));
-  const sq = sectorSearch.trim().toLowerCase();
-  const filteredSectors = sq
-    ? availSectors.filter((s) => s.name_ko.toLowerCase().includes(sq) || s.name_en.toLowerCase().includes(sq))
-    : availSectors;
-  const watchSectors = sectorWatch.map((id) => sectorsById[id]).filter(Boolean);
+  const avail = useMemo(() => {
+    const watchSet = new Set(watch);
+    return stocks.filter((s) => !watchSet.has(s.ticker));
+  }, [stocks, watch]);
+
+  const filtered = useMemo(() => {
+    const q = deferredStockSearch.trim().toLowerCase();
+    return q
+      ? avail.filter((s) => s.ticker.toLowerCase().includes(q) || (s.name_ko || '').toLowerCase().includes(q) || s.name_en.toLowerCase().includes(q))
+      : avail;
+  }, [avail, deferredStockSearch]);
+
+  const watchStocks = useMemo(
+    () => watch.map((t) => stocksByTicker[t]).filter(Boolean),
+    [watch, stocksByTicker]
+  );
+
+  const availSectors = useMemo(() => {
+    const sectorWatchSet = new Set(sectorWatch);
+    return sectors.filter((s) => !sectorWatchSet.has(s.id));
+  }, [sectors, sectorWatch]);
+
+  const filteredSectors = useMemo(() => {
+    const sq = deferredSectorSearch.trim().toLowerCase();
+    return sq
+      ? availSectors.filter((s) => s.name_ko.toLowerCase().includes(sq) || s.name_en.toLowerCase().includes(sq))
+      : availSectors;
+  }, [availSectors, deferredSectorSearch]);
+
+  const watchSectors = useMemo(
+    () => sectorWatch.map((id) => sectorsById[id]).filter(Boolean),
+    [sectorWatch, sectorsById]
+  );
 
   return (
     <div className="maxw">
