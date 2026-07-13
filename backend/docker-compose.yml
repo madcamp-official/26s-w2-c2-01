@@ -48,3 +48,12 @@ services:
 
 volumes:
   pgdata:
+
+networks:
+  default:
+    driver: bridge
+    driver_opts:
+      # VM의 실제 아웃바운드 인터페이스(ens3) MTU가 1450인데 도커 기본 브리지는 1500이라
+      # TLS 핸드셰이크처럼 조금 큰 패킷이 PMTU 블랙홀로 드롭되던 문제(Polygon API 타임아웃)
+      # 를 막기 위해 브리지 MTU를 호스트에 맞춘다.
+      com.docker.network.driver.mtu: "1450"
