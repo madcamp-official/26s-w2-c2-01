@@ -150,6 +150,44 @@ svg{display:block}
   color:var(--t3);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .iconbtn:hover{color:var(--neg);border-color:var(--neg)}
 
+/* 오늘의 변동성 */
+.vol-page{max-width:980px}
+.vol-hero{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;margin-bottom:22px}
+.vol-kicker{display:flex;align-items:center;gap:7px;color:var(--accent);font-size:11px;font-weight:800;letter-spacing:.09em;margin-bottom:7px}
+.live-dot{width:7px;height:7px;border-radius:50%;background:var(--pos);box-shadow:0 0 0 4px var(--pos-bg)}
+.vol-hero h2{font-size:25px;line-height:1.3;letter-spacing:-.035em;margin-bottom:7px}
+.vol-hero p{font-size:13px;color:var(--t2)}
+.vol-updated{font-size:12px;color:var(--t3);white-space:nowrap}
+.vol-tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
+.vol-tabs button{font:inherit;text-align:left;border:1px solid var(--line);background:var(--card);color:var(--t1);border-radius:14px;padding:13px 16px;cursor:pointer;box-shadow:var(--shadow);font-size:14px;font-weight:700;transition:.15s}
+.vol-tabs button span{display:block;color:var(--t3);font-size:11px;font-weight:400;margin-top:2px}
+.vol-tabs button:hover{border-color:var(--accent-line)}
+.vol-tabs button.on{border-color:var(--accent);background:var(--accent-bg);color:var(--accent);box-shadow:var(--shadow-sel)}
+.vol-tabs button.on span{color:var(--accent)}
+.vol-panel{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);overflow:hidden}
+.vol-panel-head{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--line);font-size:12px;font-weight:700;color:var(--t2)}
+.vol-panel-head span:last-child{font-size:11px;font-weight:400;color:var(--t3)}
+.vol-list{display:flex;flex-direction:column}
+.vol-row{width:100%;display:grid;grid-template-columns:38px minmax(150px,1.5fr) minmax(110px,1fr) minmax(90px,.8fr) minmax(76px,.7fr) minmax(100px,.9fr) 20px;align-items:center;gap:12px;border:0;border-bottom:1px solid var(--line);background:var(--card);color:var(--t1);padding:15px 18px;text-align:left;font:inherit;cursor:pointer;transition:.12s}
+.vol-row:last-child{border-bottom:0}
+.vol-row:hover{background:var(--panel)}
+.vol-rank{width:28px;height:28px;border-radius:9px;background:var(--panel);color:var(--t3);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800}
+.vol-row:first-child .vol-rank{background:var(--accent);color:#fff}
+.vol-company,.vol-primary,.vol-stat{display:flex;flex-direction:column;min-width:0}
+.vol-ticker{font-size:15px;font-weight:800;letter-spacing:.01em}
+.vol-name{font-size:11px;color:var(--t3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vol-gap{color:var(--pos);font-size:15px;font-weight:800}
+.vol-label,.vol-stat span{font-size:10.5px;color:var(--t3)}
+.vol-stat b{font-size:13px;font-weight:650;white-space:nowrap}
+.vol-arrow{color:var(--t3)}
+.vol-state{min-height:180px;padding:32px;display:flex;align-items:center;justify-content:center;gap:12px;color:var(--t2);font-size:13px}
+.vol-state>div{display:flex;flex-direction:column}.vol-state b{color:var(--t1);font-size:14px}.vol-state span{font-size:12px;color:var(--t3)}
+.vol-state.vol-error{color:var(--warn)}
+.vol-state .btn{margin-left:10px}
+.vol-spinner{width:18px;height:18px;border:2px solid var(--line2);border-top-color:var(--accent);border-radius:50%;animation:vol-spin .8s linear infinite}
+@keyframes vol-spin{to{transform:rotate(360deg)}}
+.vol-footnote{font-size:11px;color:var(--t3);margin-top:10px;text-align:right}
+
 .backlink{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--t2);
   cursor:pointer;margin-bottom:14px;user-select:none}
 .backlink:hover{color:var(--accent)}
@@ -214,4 +252,8 @@ svg{display:block}
   .lens-grid{grid-template-columns:1fr} .rail{position:static}
   .cards{grid-template-columns:1fr 1fr} .side{display:none} #view{padding:20px}
   .factgrid{grid-template-columns:1fr}
+}
+@media (max-width:760px){
+  .vol-hero{align-items:flex-start;flex-direction:column;gap:8px}
+  .vol-row{grid-template-columns:34px 1fr auto}.vol-stat,.vol-cap,.vol-arrow{display:none}
 }

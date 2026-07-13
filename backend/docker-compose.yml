@@ -33,6 +33,10 @@ services:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     ports:
       - "8000:8000"
+    volumes:
+      # 스캔 배치를 docker compose exec로 실행해도 호스트 개발 서버와
+      # 컨테이너 API가 동일한 결과 캐시를 읽도록 공유한다.
+      - ./data:/app/data
     # 컨테이너가 뜨면 마이그레이션 → 시드 → 서버 실행을 자동 수행
     # (alembic·seed 모두 멱등이라 매번 실행해도 안전)
     command: >

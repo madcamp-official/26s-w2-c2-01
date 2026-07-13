@@ -38,6 +38,9 @@ export default function Sidebar({ active, onNav, theme, onToggleTheme, nickname,
         <a className={active === 'briefing' ? 'on' : ''} onClick={() => onNav('briefing')}>
           <Icon size={18}><path d="M3 12l2-2 4 4 5-6 7 8" /></Icon> 오늘의 브리핑
         </a>
+        <a className={active === 'volatility' ? 'on' : ''} onClick={() => onNav('volatility')}>
+          <Icon size={18}><path d="M3 18l4-5 4 3 5-9 5 4" /><path d="M3 21h18" /></Icon> 오늘의 변동성
+        </a>
         <a className={active === 'mypage' ? 'on' : ''} onClick={() => onNav('mypage')}>
           <Icon size={18}><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4 4-7 8-7s8 3 8 7" /></Icon> 마이페이지
         </a>

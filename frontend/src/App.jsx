@@ -7,6 +7,7 @@ import BriefingPage from './components/BriefingPage.jsx';
 import BriefingDetailPage from './components/BriefingDetailPage.jsx';
 import MyPage from './components/MyPage.jsx';
 import LensPage from './components/LensPage.jsx';
+import VolatilityPage from './components/VolatilityPage.jsx';
 import { defaultLens, blankLens, recFor } from './data.js';
 import {
   getToken, setToken, ApiError,
@@ -14,6 +15,7 @@ import {
   listWatchlist, addWatchlist, removeWatchlist, getTodayBriefing,
   listSectorWatchlist, addSectorWatchlist, removeSectorWatchlist,
   refreshBriefing, getBriefingHistory, getMarketOverviewHistory, getSectorBriefingHistory,
+  getTodayVolatility,
 } from './api.js';
 
 export default function App() {
@@ -49,6 +51,9 @@ export default function App() {
   const [briefing, setBriefing] = useState(null); // TodayBriefingResponse
   const [dataLoading, setDataLoading] = useState(false);
   const [dataError, setDataError] = useState('');
+  const [volatility, setVolatility] = useState(null);
+  const [volatilityLoading, setVolatilityLoading] = useState(false);
+  const [volatilityError, setVolatilityError] = useState('');
 
   const loadAll = useCallback(() => {
     setDataLoading(true);
@@ -78,6 +83,17 @@ export default function App() {
   useEffect(() => {
     if (user) loadAll();
   }, [user, loadAll]);
+
+  const loadVolatility = useCallback(() => {
+    setVolatilityLoading(true);
+    setVolatilityError('');
+    getTodayVolatility()
+      .then(setVolatility)
+      .catch((err) => setVolatilityError(
+        err instanceof ApiError ? err.detail : '변동성 데이터를 불러오지 못했습니다.'
+      ))
+      .finally(() => setVolatilityLoading(false));
+  }, []);
 
   const stocksByTicker = useMemo(() => Object.fromEntries(stocks.map((s) => [s.ticker, s])), [stocks]);
   const sectorsById = useMemo(() => Object.fromEntries(sectors.map((s) => [s.id, s])), [sectors]);
@@ -133,6 +149,9 @@ export default function App() {
   const [sectorHistory, setSectorHistory] = useState([]);
   const [sectorHistoryLoading, setSectorHistoryLoading] = useState(false);
   const [sectorHistoryError, setSectorHistoryError] = useState('');
+  useEffect(() => {
+    if (user && view === 'volatility') loadVolatility();
+  }, [user, view, loadVolatility]);
   useEffect(() => {
     if (view !== 'briefing' || timeMode !== 'history') return;
     setHistoryLoading(true);
@@ -354,6 +373,8 @@ export default function App() {
     switch (view) {
       case 'briefing':
         return { crumb: '홈 / 오늘의 브리핑', title: '오늘의 브리핑' };
+      case 'volatility':
+        return { crumb: '홈 / 오늘의 변동성', title: '오늘의 변동성' };
       case 'briefing-detail': {
         const label = !detail
           ? '상세'
@@ -378,7 +399,7 @@ export default function App() {
     }
   }
   const navActiveMap = {
-    briefing: 'briefing', 'briefing-detail': 'briefing', mypage: 'mypage', lens: 'mypage', 'sector-lens': 'briefing',
+    briefing: 'briefing', 'briefing-detail': 'briefing', volatility: 'volatility', mypage: 'mypage', lens: 'mypage', 'sector-lens': 'briefing',
   };
 
   if (!authChecked) return null;
@@ -475,6 +496,17 @@ export default function App() {
                   onToggleSectorWatch={handleToggleSectorWatch}
                   sectorBriefingBySectorId={sectorBriefingBySectorId}
                   missingSectorIds={missingSectorIds}
+                />
+              )}
+
+              {view === 'volatility' && (
+                <VolatilityPage
+                  data={volatility}
+                  loading={volatilityLoading}
+                  error={volatilityError}
+                  stocksByTicker={stocksByTicker}
+                  onRetry={loadVolatility}
+                  onOpenDetail={openDetail}
                 />
               )}
 
