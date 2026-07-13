@@ -1,0 +1,458 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TRADE CHASER 프론트엔드 공부 자료</title>
+<style>
+  :root {
+    --bg: #f4f5f8;
+    --surface: #ffffff;
+    --surface-2: #ecedf4;
+    --border: #e4e4ec;
+    --text: #1b1c22;
+    --text-muted: #6a6c78;
+    --accent: #5b5bd6;
+    --accent-2: #4a4ac0;
+    --accent-soft: #eeeefc;
+    --pos: #0f6e56;
+    --warn: #854f0b;
+    --neg: #a32d2d;
+    --code-bg: #17171f;
+    --code-text: #e2e2ee;
+    --code-com: #7c7e92;
+    --code-key: #b0b0ff;
+    --code-str: #b7d98f;
+    --code-dim: #8b8da0;
+    --font-sans: 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, -apple-system,
+      'Segoe UI', Roboto, 'Noto Sans KR', sans-serif;
+    --font-mono: 'Cascadia Code', 'JetBrains Mono', 'SFMono-Regular', Consolas,
+      'D2Coding', monospace;
+    --maxw: 760px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #101016; --surface: #1a1b22; --surface-2: #21222c; --border: #2c2d38;
+      --text: #f0f0f4; --text-muted: #a3a5b3; --accent: #8b8bf5; --accent-2: #a5a5ff;
+      --accent-soft: #26264a; --pos: #9fe1cb; --warn: #fac775; --neg: #f09595;
+      --code-bg: #0c0c12; --code-text: #e2e2ee;
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #f4f5f8; --surface: #ffffff; --surface-2: #ecedf4; --border: #e4e4ec;
+    --text: #1b1c22; --text-muted: #6a6c78; --accent: #5b5bd6; --accent-2: #4a4ac0;
+    --accent-soft: #eeeefc; --pos: #0f6e56; --warn: #854f0b; --neg: #a32d2d;
+    --code-bg: #17171f; --code-text: #e2e2ee;
+  }
+  :root[data-theme="dark"] {
+    --bg: #101016; --surface: #1a1b22; --surface-2: #21222c; --border: #2c2d38;
+    --text: #f0f0f4; --text-muted: #a3a5b3; --accent: #8b8bf5; --accent-2: #a5a5ff;
+    --accent-soft: #26264a; --pos: #9fe1cb; --warn: #fac775; --neg: #f09595;
+    --code-bg: #0c0c12; --code-text: #e2e2ee;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: var(--font-sans); line-height: 1.7; font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
+
+  header.hero {
+    border-bottom: 1px solid var(--border);
+    background: radial-gradient(120% 120% at 88% -10%, var(--accent-soft) 0%, transparent 55%);
+  }
+  .hero-inner { padding: 64px 0 40px; }
+  .eyebrow {
+    font-family: var(--font-mono); font-size: 12px; letter-spacing: .14em;
+    text-transform: uppercase; color: var(--accent); font-weight: 600;
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  .eyebrow::before { content: ""; width: 22px; height: 2px; background: var(--accent); display: inline-block; }
+  h1 {
+    font-size: clamp(2rem, 5vw, 3rem); line-height: 1.1; margin: 18px 0 14px;
+    letter-spacing: -0.02em; text-wrap: balance; font-weight: 800;
+  }
+  .lede { font-size: 1.12rem; color: var(--text-muted); max-width: 640px; margin: 0; }
+  .pr-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
+  .pr-chip {
+    display: inline-flex; align-items: center; gap: 8px; padding: 7px 13px;
+    border: 1px solid var(--border); border-radius: 999px; background: var(--surface);
+    font-size: 13px; color: var(--text); text-decoration: none;
+  }
+  .pr-chip b { color: var(--accent); font-family: var(--font-mono); }
+  .pr-chip:hover { border-color: var(--accent); }
+
+  .layout { display: grid; grid-template-columns: 210px 1fr; gap: 56px; padding: 48px 0 96px; }
+  nav.toc { align-self: start; position: sticky; top: 28px; font-size: 13.5px; }
+  nav.toc .toc-title {
+    font-family: var(--font-mono); text-transform: uppercase; letter-spacing: .12em;
+    font-size: 11px; color: var(--text-muted); margin-bottom: 12px;
+  }
+  nav.toc ol { list-style: none; margin: 0; padding: 0; counter-reset: toc; }
+  nav.toc li { counter-increment: toc; }
+  nav.toc a {
+    display: block; padding: 5px 0 5px 26px; color: var(--text-muted);
+    text-decoration: none; border-left: 2px solid var(--border); position: relative;
+    transition: color .15s, border-color .15s;
+  }
+  nav.toc a::before {
+    content: counter(toc, decimal-leading-zero); position: absolute; left: 8px;
+    font-family: var(--font-mono); font-size: 10px; top: 8px; color: var(--text-muted);
+  }
+  nav.toc a:hover, nav.toc a.active { color: var(--accent); border-color: var(--accent); }
+  nav.toc a.active { font-weight: 600; }
+
+  main { min-width: 0; max-width: var(--maxw); }
+  section { margin-bottom: 56px; scroll-margin-top: 24px; }
+  section > h2 {
+    font-size: 1.6rem; letter-spacing: -0.01em; margin: 0 0 6px;
+    display: flex; align-items: baseline; gap: 12px; text-wrap: balance;
+  }
+  section > h2 .num { font-family: var(--font-mono); font-size: .85rem; color: var(--accent); font-weight: 700; }
+  .section-sub { color: var(--text-muted); margin: 0 0 24px; font-size: .98rem; }
+  h3 { font-size: 1.12rem; margin: 30px 0 8px; letter-spacing: -0.01em; }
+  p { margin: 0 0 14px; }
+  main a { color: var(--accent); text-decoration: none; border-bottom: 1px solid transparent; }
+  main a:hover { border-color: var(--accent); }
+  strong { font-weight: 700; }
+  code.inl {
+    font-family: var(--font-mono); font-size: .86em; background: var(--surface-2);
+    border: 1px solid var(--border); border-radius: 5px; padding: 1px 6px; color: var(--text); word-break: break-word;
+  }
+
+  .note {
+    border: 1px solid var(--border); border-left: 3px solid var(--accent);
+    background: var(--surface); border-radius: 10px; padding: 14px 18px; margin: 18px 0; font-size: .95rem;
+  }
+  .note.warn { border-left-color: var(--warn); }
+  .note .tag {
+    font-family: var(--font-mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--accent); font-weight: 600; display: block; margin-bottom: 4px;
+  }
+  .note.warn .tag { color: var(--warn); }
+
+  pre {
+    background: var(--code-bg); color: var(--code-text); border-radius: 10px;
+    padding: 16px 18px; overflow-x: auto; font-family: var(--font-mono);
+    font-size: 13px; line-height: 1.65; margin: 16px 0; border: 1px solid rgba(255,255,255,.06);
+  }
+  pre .c { color: var(--code-com); }
+  pre .k { color: var(--code-key); }
+  pre .s { color: var(--code-str); }
+  pre .d { color: var(--code-dim); }
+
+  .tbl-wrap { overflow-x: auto; margin: 16px 0; border: 1px solid var(--border); border-radius: 10px; }
+  table { border-collapse: collapse; width: 100%; font-size: .9rem; min-width: 480px; }
+  th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { background: var(--surface-2); font-weight: 700; font-size: .82rem; letter-spacing: .02em; }
+  tr:last-child td { border-bottom: none; }
+  td code, th code { font-family: var(--font-mono); font-size: .85em; color: var(--accent); }
+
+  .flow-wrap { overflow-x: auto; margin: 18px 0; padding-bottom: 6px; }
+  .flow { display: flex; align-items: stretch; gap: 0; min-width: 620px; }
+  .fnode { flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; text-align: center; }
+  .fnode .ft { font-weight: 700; font-size: .9rem; }
+  .fnode .fd { font-size: .74rem; color: var(--text-muted); margin-top: 3px; font-family: var(--font-mono); }
+  .farrow { display: grid; place-items: center; color: var(--accent); font-size: 20px; padding: 0 8px; flex: 0 0 auto; }
+  .fnode.hl { border-color: var(--accent); background: var(--accent-soft); }
+  .lane-label {
+    font-family: var(--font-mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--text-muted); margin: 22px 0 4px;
+  }
+
+  .layer { border: 1px solid var(--border); border-radius: 12px; background: var(--surface); margin: 14px 0; overflow: hidden; }
+  .layer-head { display: flex; align-items: center; gap: 10px; padding: 13px 16px; background: var(--surface-2); }
+  .layer-head .path { font-family: var(--font-mono); font-weight: 700; font-size: .92rem; }
+  .layer-head .role { font-size: .8rem; color: var(--text-muted); margin-left: auto; }
+  .layer-body { padding: 6px 16px 14px; }
+  .frow { display: grid; grid-template-columns: 190px 1fr; gap: 14px; padding: 9px 0; border-top: 1px solid var(--border); font-size: .9rem; }
+  .frow:first-child { border-top: none; }
+  .frow .fn { font-family: var(--font-mono); font-size: .82rem; color: var(--accent); word-break: break-word; }
+  .frow .fdesc { color: var(--text); }
+  .badge { display: inline-block; font-family: var(--font-mono); font-size: 10px; padding: 2px 7px; border-radius: 5px; font-weight: 700; letter-spacing: .03em; vertical-align: middle; }
+  .badge.live { background: var(--accent-soft); color: var(--accent-2); }
+  .badge.todo { background: color-mix(in srgb, var(--warn) 20%, transparent); color: var(--warn); }
+
+  ul.clean { padding-left: 20px; margin: 12px 0; }
+  ul.clean li { margin: 6px 0; }
+
+  footer { border-top: 1px solid var(--border); padding: 28px 0 60px; color: var(--text-muted); font-size: .88rem; }
+
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; gap: 0; padding-top: 28px; }
+    nav.toc { position: static; margin-bottom: 36px; border: 1px solid var(--border); border-radius: 12px; padding: 16px; background: var(--surface); }
+    main { max-width: none; }
+    .frow { grid-template-columns: 1fr; gap: 2px; }
+  }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  html { scroll-behavior: smooth; }
+  a:focus-visible, .pr-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+</style>
+
+<header class="hero">
+  <div class="wrap hero-inner">
+    <span class="eyebrow">TRADE CHASER · Frontend Study Guide</span>
+    <h1>React 프론트엔드, 화면부터 상태까지</h1>
+    <p class="lede">React 19 + Vite로 만든 SPA입니다. 지금은 <strong>전부 목업 데이터(data.js)</strong>로 동작하고, 백엔드 연동은 아직 안 된 상태예요. 화면이 어떻게 나뉘고, 상태가 어디에 있고, 어느 지점을 백엔드에 연결하면 되는지까지 정리했습니다.</p>
+    <div class="pr-row">
+      <a class="pr-chip" href="https://github.com/madcamp-official/26s-w2-c2-01" target="_blank" rel="noopener"><b>frontend/</b> 소스</a>
+      <a class="pr-chip" href="backend-guide.html"><b>↔</b> 백엔드 공부 자료</a>
+    </div>
+  </div>
+</header>
+
+<div class="wrap layout">
+  <nav class="toc" aria-label="목차">
+    <div class="toc-title">목차</div>
+    <ol>
+      <li><a href="#big">큰 그림</a></li>
+      <li><a href="#stack">기술 스택</a></li>
+      <li><a href="#nav">화면 구조 · 네비게이션</a></li>
+      <li><a href="#state">상태 관리 (App.jsx)</a></li>
+      <li><a href="#data">데이터: data.js</a></li>
+      <li><a href="#comp">컴포넌트별 설명</a></li>
+      <li><a href="#lens">분석 렌즈 (핵심)</a></li>
+      <li><a href="#theme">테마 시스템</a></li>
+      <li><a href="#connect">백엔드 연동 지점</a></li>
+      <li><a href="#run">직접 돌려보기</a></li>
+    </ol>
+  </nav>
+
+  <main>
+    <section id="big">
+      <h2><span class="num">01</span> 큰 그림</h2>
+      <p class="section-sub">코드를 열기 전에 알아둘 3가지.</p>
+      <ul class="clean">
+        <li><strong>SPA(단일 페이지 앱)</strong> — 페이지 이동이 없습니다. <code class="inl">App.jsx</code>가 <code class="inl">view</code> 상태 하나로 어떤 화면을 그릴지 정합니다. (라우터 라이브러리 없음)</li>
+        <li><strong>전부 목업</strong> — 종목·브리핑·추천이 <code class="inl">src/data.js</code>에 하드코딩돼 있습니다. 서버 호출(fetch)이 아직 <strong>한 줄도 없습니다.</strong></li>
+        <li><strong>상태는 위에서 아래로</strong> — 거의 모든 상태가 <code class="inl">App.jsx</code>에 <code class="inl">useState</code>로 있고, 자식 컴포넌트엔 <strong>props로 내려줍니다</strong>(prop drilling). 상태관리 라이브러리(Redux 등) 없음.</li>
+      </ul>
+      <div class="note">
+        <span class="tag">그래서 다음 할 일은</span>
+        UI는 이미 다 만들어져 있으니, <a href="#connect">§09</a>처럼 <code class="inl">data.js</code> 목업을 백엔드 API 호출로 하나씩 바꾸면 실제로 동작하는 앱이 됩니다.
+      </div>
+    </section>
+
+    <section id="stack">
+      <h2><span class="num">02</span> 기술 스택</h2>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>도구</th><th>역할</th></tr></thead>
+          <tbody>
+            <tr><td><strong>React 19</strong></td><td>UI 라이브러리. 함수형 컴포넌트 + Hooks(<code>useState</code>, <code>useEffect</code>, <code>useCallback</code>)</td></tr>
+            <tr><td><strong>Vite 8</strong></td><td>개발 서버 + 번들러. <code>npm run dev</code> 하면 즉시 핫리로드</td></tr>
+            <tr><td><strong>JSX</strong></td><td>자바스크립트 안에 HTML처럼 쓰는 문법 (<code>.jsx</code> 파일)</td></tr>
+            <tr><td><strong>@vitejs/plugin-react</strong></td><td>Vite가 JSX/React를 처리하게 해주는 플러그인</td></tr>
+            <tr><td><strong>oxlint</strong></td><td>빠른 린터(코드 검사). <code>npm run lint</code></td></tr>
+            <tr><td><strong>CSS 변수</strong></td><td>별도 CSS 프레임워크 없이 <code>index.css</code> 하나 + <code>--accent</code> 같은 변수로 테마</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="note">
+        <span class="tag">일부러 안 쓴 것</span>
+        라우터·상태관리·UI 라이브러리·CSS 프레임워크가 <strong>전부 없습니다.</strong> 화면 수가 적어 순수 React만으로 충분하다는 판단. 덕분에 배울 개념이 적습니다.
+      </div>
+    </section>
+
+    <section id="nav">
+      <h2><span class="num">03</span> 화면 구조 · 네비게이션</h2>
+      <p class="section-sub">라우터 대신 <code class="inl">view</code> 상태 하나로 화면을 바꿉니다.</p>
+      <div class="flow-wrap">
+        <div class="flow">
+          <div class="fnode hl"><div class="ft">briefing</div><div class="fd">오늘의 브리핑</div></div>
+          <div class="farrow">⇄</div>
+          <div class="fnode"><div class="ft">briefing-detail</div><div class="fd">종목/섹터/전체 상세</div></div>
+          <div class="farrow">⇄</div>
+          <div class="fnode"><div class="ft">mypage</div><div class="fd">프로필·관심종목</div></div>
+          <div class="farrow">⇄</div>
+          <div class="fnode"><div class="ft">lens</div><div class="fd">분석 렌즈 편집</div></div>
+        </div>
+      </div>
+      <p><code class="inl">App.jsx</code>는 <code class="inl">view</code> 값에 따라 해당 페이지 컴포넌트 하나를 조건부 렌더링합니다. 사이드바 클릭이나 카드 클릭이 <code class="inl">setView(...)</code>를 호출해 화면을 전환합니다.</p>
+<pre><span class="k">const</span> [view, setView] = useState(<span class="s">'briefing'</span>);
+<span class="c">// ...</span>
+{view === <span class="s">'briefing'</span> &amp;&amp; <span class="k">&lt;BriefingPage</span> ... /&gt;}
+{view === <span class="s">'mypage'</span>   &amp;&amp; <span class="k">&lt;MyPage</span> ... /&gt;}
+{view === <span class="s">'lens'</span>     &amp;&amp; <span class="k">&lt;LensPage</span> ... /&gt;}</pre>
+      <p><code class="inl">headerInfo()</code>가 현재 <code class="inl">view</code>에 맞는 breadcrumb·제목을 계산해 <code class="inl">TopBar</code>에 넘겨줍니다.</p>
+    </section>
+
+    <section id="state">
+      <h2><span class="num">04</span> 상태 관리 (App.jsx)</h2>
+      <p class="section-sub">중요한 상태가 전부 여기 모여 있습니다. 이걸 이해하면 절반은 끝.</p>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>상태</th><th>의미</th></tr></thead>
+          <tbody>
+            <tr><td><code>view</code></td><td>지금 보여줄 화면 (briefing / detail / mypage / lens)</td></tr>
+            <tr><td><code>watch</code></td><td>내 관심종목 티커 배열 <code>['NVDA','TSLA','AAPL']</code></td></tr>
+            <tr><td><code>lensByTicker</code></td><td>종목별 분석 렌즈 설정 맵 {ticker → {cats, preset, depth, note}}</td></tr>
+            <tr><td><code>period</code> / <code>briefingTab</code></td><td>브리핑 기간(밤사이/3일/주) · 탭(내종목/섹터/전체)</td></tr>
+            <tr><td><code>detail</code></td><td>상세 화면 대상 {type:'stock', ticker} 등</td></tr>
+            <tr><td><code>profile</code></td><td>닉네임·이메일·투자성향 (지금은 하드코딩)</td></tr>
+            <tr><td><code>theme</code> / <code>systemDark</code></td><td>라이트/다크 (§08)</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>상태를 바꾸는 함수들(<code class="inl">handleAddStock</code>, <code class="inl">removeFromWatch</code>, <code class="inl">openLens</code>, <code class="inl">updateLensFor</code> 등)도 <code class="inl">App.jsx</code>에 있고, 자식에게 props로 내려갑니다. 예를 들어 검색해서 종목을 추가하면 <code class="inl">watch</code>에 넣고 곧바로 그 종목의 렌즈 화면으로 이동합니다.</p>
+<pre><span class="k">const</span> handleAddStock = useCallback((t) =&gt; {
+  setWatch((prev) =&gt; prev.includes(t) ? prev : [...prev, t]);
+  setStockSearch(<span class="s">''</span>);
+  openLens(t);              <span class="c">// 추가하면 바로 렌즈 편집으로</span>
+}, [openLens]);</pre>
+    </section>
+
+    <section id="data">
+      <h2><span class="num">05</span> 데이터: data.js</h2>
+      <p class="section-sub">지금 화면에 보이는 모든 값의 출처. = 나중에 API로 대체될 부분.</p>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>export</th><th>내용</th></tr></thead>
+          <tbody>
+            <tr><td><code>STOCKS</code></td><td>종목 10개(이름·섹터·감성·등락·설명). 목업 브리핑의 핵심</td></tr>
+            <tr><td><code>DETAILS</code> / <code>SECTORS</code> / <code>OVERVIEW</code></td><td>종목 상세(긍/부/확인), 섹터 요약, 전체 시황</td></tr>
+            <tr><td><code>CATS</code> / <code>PRESETS</code></td><td>분석 카테고리(지수·지표·섹터), 성향 프리셋 5종</td></tr>
+            <tr><td><code>REC_LENS</code> / <code>recFor()</code></td><td>섹터별 추천 렌즈(추천 이유 포함)</td></tr>
+            <tr><td><code>PERIODS</code> / <code>SENT</code></td><td>기간 옵션, 감성 라벨 매핑</td></tr>
+            <tr><td><code>buildPreview()</code></td><td>렌즈 설정 → 조립된 프롬프트 문구 (§07)</td></tr>
+            <tr><td><code>defaultLens / blankLens / chgClass</code></td><td>렌즈 기본값·초기화, 등락 색상 유틸</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="note warn">
+        <span class="tag">연동 시 주의</span>
+        <code class="inl">CATS</code>·<code class="inl">PRESETS</code>·<code class="inl">STOCKS</code>는 백엔드 시드 데이터와 <strong>같은 값</strong>으로 맞춰져 있습니다. API로 바꿀 때 코드(예: <code class="inl">SEMI</code>, <code class="inl">VALUE</code>)만 일치시키면 나머지 컴포넌트는 그대로 동작합니다.
+      </div>
+    </section>
+
+    <section id="comp">
+      <h2><span class="num">06</span> 컴포넌트별 설명</h2>
+      <p class="section-sub"><code class="inl">src/components/</code>. <span class="badge live">동작중</span> = 목업으로 완성, <span class="badge todo">연동예정</span> = API 붙일 곳.</p>
+
+      <div class="layer">
+        <div class="layer-head"><span class="path">레이아웃</span><span class="role">항상 보이는 뼈대</span></div>
+        <div class="layer-body">
+          <div class="frow"><span class="fn">Sidebar.jsx</span><span class="fdesc"><span class="badge live">동작중</span> 로고, 테마 토글, 네비게이션(브리핑/마이페이지), 하단 유저박스.</span></div>
+          <div class="frow"><span class="fn">TopBar.jsx</span><span class="fdesc"><span class="badge live">동작중</span> 상단 breadcrumb + 제목 + 우측 액션 슬롯(<code class="inl">children</code>).</span></div>
+          <div class="frow"><span class="fn">Icon.jsx</span><span class="fdesc"><span class="badge live">동작중</span> SVG 아이콘 래퍼. <code class="inl">children</code>으로 <code class="inl">path</code>를 넘기거나 <code class="inl">shapes</code> prop 사용.</span></div>
+        </div>
+      </div>
+
+      <div class="layer">
+        <div class="layer-head"><span class="path">페이지</span><span class="role">view별 화면</span></div>
+        <div class="layer-body">
+          <div class="frow"><span class="fn">BriefingPage.jsx</span><span class="fdesc"><span class="badge live">동작중</span> <span class="badge todo">연동예정</span> 기간 탭 + (내종목/섹터/전체) 탭. 내종목 탭엔 검색-추가 + 종목 카드 리스트. → <code class="inl">/briefings/today</code></span></div>
+          <div class="frow"><span class="fn">BriefingDetailPage.jsx</span><span class="fdesc"><span class="badge live">동작중</span> <span class="badge todo">연동예정</span> 전체/섹터/종목 상세. 긍정·부정·확인할것 박스 + 근거 인용 + 렌즈편집/관심토글 버튼.</span></div>
+          <div class="frow"><span class="fn">MyPage.jsx</span><span class="fdesc"><span class="badge live">동작중</span> <span class="badge todo">연동예정</span> 프로필(닉네임·투자성향) + 관심종목 목록(렌즈 요약·삭제). → <code class="inl">/users/me</code>, <code class="inl">/watchlist</code></span></div>
+          <div class="frow"><span class="fn">LensPage.jsx</span><span class="fdesc"><span class="badge live">동작중</span> <strong>가장 복잡.</strong> 카테고리·성향·심층도·메모 선택 → 우측에 조립된 프롬프트 미리보기. (§07)</span></div>
+          <div class="frow"><span class="fn">LensTopActions.jsx</span><span class="fdesc"><span class="badge live">동작중</span> 렌즈 화면일 때 TopBar에 주입되는 초기화/추천/저장 버튼.</span></div>
+        </div>
+      </div>
+      <div class="note">
+        <span class="tag">패턴</span>
+        컴포넌트는 <strong>상태를 직접 안 갖고</strong> props로 받은 값을 그리고, 클릭 시 props로 받은 함수(<code class="inl">onOpenDetail</code>, <code class="inl">onAddStock</code>…)를 호출만 합니다. 실제 상태 변경은 전부 <code class="inl">App.jsx</code>에서. (제어를 위로 올린 "controlled" 패턴)
+      </div>
+    </section>
+
+    <section id="lens">
+      <h2><span class="num">07</span> 분석 렌즈 (핵심 기능)</h2>
+      <p class="section-sub"><code class="inl">LensPage</code> — 백엔드의 "2단계 성향 렌더링"과 짝을 이루는 UI.</p>
+      <p>사용자가 <strong>① 카테고리</strong>(지수·지표·섹터) + <strong>② 성향</strong>(가치투자·모멘텀…) + <strong>③ 심층도</strong> + <strong>참고 메모</strong>를 고르면, 우측 레일에서 <code class="inl">buildPreview()</code>가 이걸 <strong>실제 프롬프트 문장으로 조립</strong>해 실시간으로 보여줍니다.</p>
+      <div class="flow-wrap">
+        <div class="flow">
+          <div class="fnode"><div class="ft">카테고리 선택</div><div class="fd">CATS</div></div>
+          <div class="farrow">+</div>
+          <div class="fnode"><div class="ft">성향 선택</div><div class="fd">PRESETS</div></div>
+          <div class="farrow">+</div>
+          <div class="fnode"><div class="ft">심층도</div><div class="fd">brief/standard/deep</div></div>
+          <div class="farrow">→</div>
+          <div class="fnode hl"><div class="ft">프롬프트 조립</div><div class="fd">buildPreview()</div></div>
+        </div>
+      </div>
+      <p><code class="inl">recFor(ticker)</code>가 종목 섹터에 맞는 <strong>추천 렌즈</strong>(기본/대안)와 그 이유를 제공합니다. "추천" 버튼을 누르면 그 조합이 한 번에 적용되고, "왜 이 추천인가요?" 설명이 뜹니다. 하단의 <em>"근거 인용 필수 · 매매 지시 금지"</em>는 성향과 무관하게 <strong>고정된 가드레일</strong>로 표시됩니다.</p>
+      <div class="note">
+        <span class="tag">백엔드와의 연결</span>
+        여기서 조립한 렌즈(카테고리·성향·심층도)가 나중에 백엔드 <code class="inl">/analysis</code> 파이프라인의 2단계 입력으로 전달됩니다. 지금은 미리보기까지만, 저장·전송은 연동 예정.
+      </div>
+    </section>
+
+    <section id="theme">
+      <h2><span class="num">08</span> 테마 시스템</h2>
+      <p class="section-sub">CSS 변수 + <code class="inl">data-theme</code> 속성. 백엔드 공부 자료와 같은 원리.</p>
+      <ul class="clean">
+        <li><code class="inl">index.css</code>가 <code class="inl">:root</code>에 색 변수(<code class="inl">--accent</code>, <code class="inl">--t1</code>, <code class="inl">--card</code>…)를 정의합니다.</li>
+        <li>기본은 OS 설정(<code class="inl">prefers-color-scheme</code>)을 따르고, 사용자가 토글하면 <code class="inl">&lt;html data-theme="dark"&gt;</code>가 붙어 그게 우선합니다.</li>
+        <li><code class="inl">App.jsx</code>의 <code class="inl">effectiveTheme</code>이 실제 적용 테마를 계산하고, <code class="inl">useEffect</code>가 <code class="inl">documentElement</code>에 속성을 씁니다.</li>
+      </ul>
+<pre><span class="k">const</span> effectiveTheme = theme || (systemDark ? <span class="s">'dark'</span> : <span class="s">'light'</span>);
+useEffect(() =&gt; {
+  <span class="k">if</span> (theme) document.documentElement.setAttribute(<span class="s">'data-theme'</span>, theme);
+  <span class="k">else</span> document.documentElement.removeAttribute(<span class="s">'data-theme'</span>);
+}, [theme]);</pre>
+    </section>
+
+    <section id="connect">
+      <h2><span class="num">09</span> 백엔드 연동 지점</h2>
+      <p class="section-sub">목업(data.js/useState)을 어떤 API로 바꾸면 되는지 지도.</p>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>지금 (목업)</th><th>바꿀 API</th><th>위치</th></tr></thead>
+          <tbody>
+            <tr><td><code>profile</code> 하드코딩</td><td><code>POST /auth/login</code>, <code>GET /users/me</code></td><td>App.jsx</td></tr>
+            <tr><td><code>watch</code> 배열</td><td><code>GET/POST/DELETE /watchlist</code></td><td>App.jsx</td></tr>
+            <tr><td><code>STOCKS</code> 검색</td><td><code>GET /stocks?search=</code></td><td>BriefingPage</td></tr>
+            <tr><td><code>CATS</code> / <code>PRESETS</code></td><td><code>GET /analysis-categories</code>, <code>/analysis-presets</code></td><td>LensPage</td></tr>
+            <tr><td><code>STOCKS.desc</code> / <code>DETAILS</code> / <code>OVERVIEW</code></td><td><code>GET /briefings/today</code></td><td>Briefing*</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="note">
+        <span class="tag">연동 팁</span>
+        토큰 인증이 필요하므로, 로그인 후 받은 <code class="inl">access_token</code>을 저장했다가 요청 헤더에 <code class="inl">Authorization: Bearer …</code>로 넣어야 합니다. 백엔드는 이미 <code class="inl">localhost:5173</code>을 CORS 허용해 뒀습니다. <code class="inl">fetch</code> 로직은 <code class="inl">src/api.js</code> 같은 파일로 모아두면 깔끔합니다.
+      </div>
+    </section>
+
+    <section id="run">
+      <h2><span class="num">10</span> 직접 돌려보기</h2>
+      <pre><span class="c"># frontend 폴더에서</span>
+npm install
+npm run dev        <span class="c"># → http://localhost:5173</span>
+
+npm run build      <span class="c"># 배포용 빌드</span>
+npm run lint       <span class="c"># 코드 검사(oxlint)</span></pre>
+      <div class="note">
+        <span class="tag">추천 학습 순서</span>
+        <code class="inl">main.jsx</code>(진입점) → <code class="inl">App.jsx</code>(상태·화면 전환) → <code class="inl">data.js</code>(데이터 형태) → 페이지 컴포넌트 하나(<code class="inl">BriefingPage</code>) 순으로 읽으면 "상태 → props → 렌더 → 클릭 → 상태변경" 한 바퀴가 보입니다. 그다음 <code class="inl">LensPage</code>로.
+      </div>
+    </section>
+
+    <footer>
+      TRADE CHASER 프론트엔드 학습 자료 · <a href="https://github.com/madcamp-official/26s-w2-c2-01" target="_blank" rel="noopener">GitHub</a> · 짝 자료: <a href="backend-guide.html">백엔드 공부 자료</a>
+    </footer>
+  </main>
+</div>
+
+<script>
+  (function () {
+    var links = Array.prototype.slice.call(document.querySelectorAll('nav.toc a'));
+    var map = {};
+    links.forEach(function (a) {
+      var id = a.getAttribute('href').slice(1);
+      var sec = document.getElementById(id);
+      if (sec) map[id] = a;
+    });
+    if (!('IntersectionObserver' in window)) return;
+    var obs = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting) {
+          links.forEach(function (l) { l.classList.remove('active'); });
+          if (map[e.target.id]) map[e.target.id].classList.add('active');
+        }
+      });
+    }, { rootMargin: '-20% 0px -70% 0px' });
+    Object.keys(map).forEach(function (id) {
+      var sec = document.getElementById(id);
+      if (sec) obs.observe(sec);
+    });
+  })();
+</script>
