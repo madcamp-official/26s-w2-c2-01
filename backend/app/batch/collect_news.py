@@ -24,6 +24,7 @@ for _stream in (sys.stdout, sys.stderr):
 
 from app.core.finnhub_client import FinnhubError, FinnhubNotConfigured, fetch_company_news
 from app.crud.news_article import create_news_article, distinct_watchlist_tickers, url_exists
+from app.crud.sector_watchlist import distinct_followed_sector_tickers
 from app.crud.stock import list_stocks
 from app.db.session import SessionLocal
 
@@ -31,10 +32,12 @@ REQUEST_INTERVAL_SEC = 1.1  # Finnhub 무료 티어(분당 호출 제한) 여유
 
 
 def target_tickers(db) -> list[str]:
-    tickers = distinct_watchlist_tickers(db)
+    # 관심종목으로 직접 추가한 티커 + 관심 섹터에 속한 티커(개별 관심종목 등록 없이도
+    # 섹터를 관심 등록하면 소속 종목 뉴스가 수집되어야 섹터 브리핑을 만들 수 있다).
+    tickers = sorted(set(distinct_watchlist_tickers(db)) | set(distinct_followed_sector_tickers(db)))
     if tickers:
         return tickers
-    # 관심종목이 아직 없으면(초기 데모) 시드된 전체 종목을 대상으로 한다.
+    # 관심종목도 관심 섹터도 아직 없으면(초기 데모) 시드된 전체 종목을 대상으로 한다.
     return [s.ticker for s in list_stocks(db)]
 
 

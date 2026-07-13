@@ -60,6 +60,7 @@ export default function LensPage({
   ticker, stock, lens, updateLens, onBack,
   catGroups, catLabel, presets, presetsByCode, rec,
   catSearchOpen, setCatSearchOpen, catSearchQuery, setCatSearchQuery,
+  kind = 'stock', backLabel = '마이페이지로',
 }) {
   const preview = buildPreview(lens, catLabel, presetsByCode);
 
@@ -101,14 +102,18 @@ export default function LensPage({
     <div className="lens-grid">
       <div>
         <div className="backlink" onClick={onBack}>
-          <Icon size={15}><path d="M15 18l-6-6 6-6" /></Icon> 마이페이지로
+          <Icon size={15}><path d="M15 18l-6-6 6-6" /></Icon> {backLabel}
         </div>
-        <div className="crumbline">{ticker} · {stock.name_ko || stock.name_en} 분석 렌즈</div>
+        <div className="crumbline">
+          {kind === 'sector' ? `${stock.name_ko || stock.name_en} 섹터 분석 렌즈` : `${ticker} · ${stock.name_ko || stock.name_en} 분석 렌즈`}
+        </div>
 
         <div className="recbox">
           <div className="rt">
             <Icon size={14}><path d="M12 2l3 6.5 7 .9-5 4.8 1.3 7L12 18l-6.6 3.2L6.7 14l-5-4.8 7-.9z" /></Icon>
-            {(stock.name_ko || stock.name_en)}({stock.sector?.name_ko ?? '섹터 미지정'}) 추천 렌즈
+            {kind === 'sector'
+              ? `${stock.name_ko || stock.name_en} 섹터 추천 렌즈`
+              : `${stock.name_ko || stock.name_en}(${stock.sector?.name_ko ?? '섹터 미지정'}) 추천 렌즈`}
           </div>
           <div className="rechips">
             <div className="rechip" onClick={() => applyRec('primary')}>

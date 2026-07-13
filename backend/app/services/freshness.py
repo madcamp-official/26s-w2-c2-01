@@ -18,3 +18,14 @@ def is_fresh(db: Session, generated_at: datetime, hours: int) -> bool:
     """
     server_now = db.scalar(select(func.now())).replace(tzinfo=None)
     return server_now - generated_at < timedelta(hours=hours)
+
+
+def is_same_calendar_day(db: Session, when: datetime | None) -> bool:
+    """
+    when이 DB 서버 기준 "오늘"과 같은 날짜인지 판단한다 (하루 1회 수동 새로고침 제한용).
+    is_fresh와 마찬가지로 비교 기준을 DB 서버 시각에서 가져온다.
+    """
+    if when is None:
+        return False
+    server_now = db.scalar(select(func.now())).replace(tzinfo=None)
+    return server_now.date() == when.date()

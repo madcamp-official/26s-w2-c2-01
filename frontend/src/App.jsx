@@ -10,8 +10,10 @@ import LensPage from './components/LensPage.jsx';
 import { defaultLens, blankLens, recFor } from './data.js';
 import {
   getToken, setToken, ApiError,
-  getMe, listStocks, listAnalysisCategories, listAnalysisPresets,
+  getMe, listStocks, listSectors, listAnalysisCategories, listAnalysisPresets,
   listWatchlist, addWatchlist, removeWatchlist, getTodayBriefing,
+  listSectorWatchlist, addSectorWatchlist, removeSectorWatchlist,
+  refreshBriefing, getBriefingHistory, getMarketOverviewHistory, getSectorBriefingHistory,
 } from './api.js';
 
 export default function App() {
@@ -39,9 +41,11 @@ export default function App() {
 
   // ── 서버 데이터 ──
   const [stocks, setStocks] = useState([]);
+  const [sectors, setSectors] = useState([]);
   const [categories, setCategories] = useState([]);
   const [presets, setPresets] = useState([]);
   const [watchItems, setWatchItems] = useState([]); // WatchlistRead[] (id, ticker, stock)
+  const [sectorWatchItems, setSectorWatchItems] = useState([]); // SectorWatchlistRead[] (id, sector_id, sector)
   const [briefing, setBriefing] = useState(null); // TodayBriefingResponse
   const [dataLoading, setDataLoading] = useState(false);
   const [dataError, setDataError] = useState('');
@@ -51,16 +55,20 @@ export default function App() {
     setDataError('');
     Promise.all([
       listStocks(),
+      listSectors(),
       listAnalysisCategories(),
       listAnalysisPresets(),
       listWatchlist(),
+      listSectorWatchlist(),
       getTodayBriefing(),
     ])
-      .then(([s, c, p, w, b]) => {
+      .then(([s, sec, c, p, w, sw, b]) => {
         setStocks(s);
+        setSectors(sec);
         setCategories(c);
         setPresets(p);
         setWatchItems(w);
+        setSectorWatchItems(sw);
         setBriefing(b);
       })
       .catch((err) => setDataError(err instanceof ApiError ? err.detail : '데이터를 불러오지 못했습니다.'))
@@ -72,6 +80,7 @@ export default function App() {
   }, [user, loadAll]);
 
   const stocksByTicker = useMemo(() => Object.fromEntries(stocks.map((s) => [s.ticker, s])), [stocks]);
+  const sectorsById = useMemo(() => Object.fromEntries(sectors.map((s) => [s.id, s])), [sectors]);
   const catLabel = useMemo(() => Object.fromEntries(categories.map((c) => [c.code, c.name_ko])), [categories]);
   const presetsByCode = useMemo(() => Object.fromEntries(presets.map((p) => [p.code, p])), [presets]);
   const catGroups = useMemo(() => ([
@@ -80,24 +89,86 @@ export default function App() {
     { key: 'sec', label: '섹터 · 테마', items: categories.filter((c) => c.type === 'sector' || c.type === 'theme').map((c) => [c.code, c.name_ko]) },
   ]), [categories]);
   const watch = useMemo(() => watchItems.map((w) => w.ticker), [watchItems]);
+  const sectorWatch = useMemo(() => sectorWatchItems.map((w) => w.sector_id), [sectorWatchItems]);
   const briefingByTicker = useMemo(
     () => Object.fromEntries((briefing?.stocks ?? []).map((b) => [b.ticker, b])),
     [briefing]
   );
   const missingTickers = useMemo(() => new Set(briefing?.missing_tickers ?? []), [briefing]);
+  const sectorBriefingBySectorId = useMemo(
+    () => Object.fromEntries((briefing?.sector_briefings ?? []).map((b) => [b.sector_id, b])),
+    [briefing]
+  );
+  const missingSectorIds = useMemo(() => new Set(briefing?.missing_sectors ?? []), [briefing]);
 
   // ── 화면 상태 ──
   const [view, setView] = useState('briefing'); // briefing | briefing-detail | mypage | lens
-  const [period, setPeriod] = useState('3d');
+  const [timeMode, setTimeMode] = useState('today'); // today | history
   const [briefingTab, setBriefingTab] = useState('mine');
   const [detail, setDetail] = useState(null);
   const [stockSearch, setStockSearch] = useState('');
+  const [sectorSearch, setSectorSearch] = useState('');
   const [lensTicker, setLensTicker] = useState(null);
   const [lensByTicker, setLensByTicker] = useState({});
+  const [lensSectorId, setLensSectorId] = useState(null);
+  const [lensBySector, setLensBySector] = useState({});
   const [catSearchOpen, setCatSearchOpen] = useState({});
   const [catSearchQuery, setCatSearchQuery] = useState({});
   const [watchBusy, setWatchBusy] = useState(false);
   const [watchError, setWatchError] = useState('');
+  const [sectorWatchBusy, setSectorWatchBusy] = useState(false);
+  const [sectorWatchError, setSectorWatchError] = useState('');
+
+  // ── 하루 1회 수동 새로고침 ──
+  const [refreshBusy, setRefreshBusy] = useState(false);
+  const [refreshError, setRefreshError] = useState('');
+
+  // ── 이전 기록(오늘/이전 기록 탭) ──
+  const [history, setHistory] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState('');
+  const [overviewHistory, setOverviewHistory] = useState([]);
+  const [overviewHistoryLoading, setOverviewHistoryLoading] = useState(false);
+  const [overviewHistoryError, setOverviewHistoryError] = useState('');
+  const [sectorHistory, setSectorHistory] = useState([]);
+  const [sectorHistoryLoading, setSectorHistoryLoading] = useState(false);
+  const [sectorHistoryError, setSectorHistoryError] = useState('');
+  useEffect(() => {
+    if (view !== 'briefing' || timeMode !== 'history') return;
+    setHistoryLoading(true);
+    setHistoryError('');
+    getBriefingHistory()
+      .then(setHistory)
+      .catch((err) => setHistoryError(err instanceof ApiError ? err.detail : '이전 기록을 불러오지 못했습니다.'))
+      .finally(() => setHistoryLoading(false));
+
+    setOverviewHistoryLoading(true);
+    setOverviewHistoryError('');
+    getMarketOverviewHistory()
+      .then(setOverviewHistory)
+      .catch((err) => setOverviewHistoryError(err instanceof ApiError ? err.detail : '이전 기록을 불러오지 못했습니다.'))
+      .finally(() => setOverviewHistoryLoading(false));
+
+    setSectorHistoryLoading(true);
+    setSectorHistoryError('');
+    getSectorBriefingHistory()
+      .then(setSectorHistory)
+      .catch((err) => setSectorHistoryError(err instanceof ApiError ? err.detail : '이전 기록을 불러오지 못했습니다.'))
+      .finally(() => setSectorHistoryLoading(false));
+  }, [view, timeMode]);
+
+  async function handleRefreshBriefing() {
+    setRefreshError('');
+    setRefreshBusy(true);
+    try {
+      const b = await refreshBriefing();
+      setBriefing(b);
+    } catch (err) {
+      setRefreshError(err instanceof ApiError ? err.detail : '새로고침에 실패했습니다.');
+    } finally {
+      setRefreshBusy(false);
+    }
+  }
 
   // ── 테마 ──
   const [theme, setTheme] = useState(null);
@@ -140,6 +211,10 @@ export default function App() {
     const s = stocksByTicker[ticker]?.sector;
     return s ? (SECTOR_NAME_TO_CODE[s.name_ko] ?? null) : null;
   }
+  function sectorCodeOfSector(sectorId) {
+    const name = sectorsById[sectorId]?.name_ko;
+    return name ? (SECTOR_NAME_TO_CODE[name] ?? null) : null;
+  }
   const getLens = useCallback(
     (t) => lensByTicker[t] || defaultLens(sectorCodeOf(t)),
     [lensByTicker, stocksByTicker, categories]
@@ -151,9 +226,26 @@ export default function App() {
     });
   }, [stocksByTicker, categories]);
 
+  const getSectorLens = useCallback(
+    (sid) => lensBySector[sid] || defaultLens(sectorCodeOfSector(sid)),
+    [lensBySector, sectorsById, categories]
+  );
+  const updateSectorLensFor = useCallback((sectorId, updater) => {
+    setLensBySector((prev) => {
+      const cur = prev[sectorId] || defaultLens(sectorCodeOfSector(sectorId));
+      return { ...prev, [sectorId]: updater(cur) };
+    });
+  }, [sectorsById, categories]);
+
   const openLens = useCallback((t) => {
     setLensTicker(t);
     setView('lens');
+    setCatSearchOpen({});
+    setCatSearchQuery({});
+  }, []);
+  const openSectorLens = useCallback((sid) => {
+    setLensSectorId(sid);
+    setView('sector-lens');
     setCatSearchOpen({});
     setCatSearchQuery({});
   }, []);
@@ -199,14 +291,58 @@ export default function App() {
     }
   }
 
+  // 관심종목과 동일한 패턴 — 섹터를 관심 등록하면 소속 종목 뉴스 수집 + 섹터 단위
+  // LLM 브리핑 생성 대상이 된다(백엔드 app/services/sector_briefing_pipeline.py).
+  async function handleAddSector(sectorId) {
+    setSectorWatchError('');
+    setSectorWatchBusy(true);
+    try {
+      const item = await addSectorWatchlist(sectorId);
+      setSectorWatchItems((prev) => [...prev, item]);
+      setSectorSearch('');
+      openSectorLens(sectorId);
+    } catch (err) {
+      setSectorWatchError(err instanceof ApiError ? err.detail : '관심 섹터 추가에 실패했습니다.');
+    } finally {
+      setSectorWatchBusy(false);
+    }
+  }
+  async function handleRemoveSector(sectorId) {
+    setSectorWatchError('');
+    try {
+      await removeSectorWatchlist(sectorId);
+      setSectorWatchItems((prev) => prev.filter((w) => w.sector_id !== sectorId));
+    } catch (err) {
+      setSectorWatchError(err instanceof ApiError ? err.detail : '삭제에 실패했습니다.');
+    }
+  }
+  async function handleToggleSectorWatch(sectorId) {
+    if (sectorWatch.includes(sectorId)) {
+      await handleRemoveSector(sectorId);
+    } else {
+      await handleAddSector(sectorId);
+    }
+  }
+
   function handleLensReset() {
-    updateLensFor(lensTicker, (l) => ({ ...blankLens(), note: l.note }));
+    if (view === 'sector-lens') {
+      updateSectorLensFor(lensSectorId, (l) => ({ ...blankLens(), note: l.note }));
+    } else {
+      updateLensFor(lensTicker, (l) => ({ ...blankLens(), note: l.note }));
+    }
   }
   function handleLensRecommend() {
-    updateLensFor(lensTicker, (l) => {
-      const r = recFor(sectorCodeOf(lensTicker)).primary;
-      return { cats: new Set(r.cats), preset: r.preset, depth: 'standard', note: l.note, whyKey: 'primary' };
-    });
+    if (view === 'sector-lens') {
+      updateSectorLensFor(lensSectorId, (l) => {
+        const r = recFor(sectorCodeOfSector(lensSectorId)).primary;
+        return { cats: new Set(r.cats), preset: r.preset, depth: 'standard', note: l.note, whyKey: 'primary' };
+      });
+    } else {
+      updateLensFor(lensTicker, (l) => {
+        const r = recFor(sectorCodeOf(lensTicker)).primary;
+        return { cats: new Set(r.cats), preset: r.preset, depth: 'standard', note: l.note, whyKey: 'primary' };
+      });
+    }
   }
 
   function handleUserUpdated(updated) {
@@ -223,8 +359,8 @@ export default function App() {
           ? '상세'
           : detail.type === 'overview'
           ? '전체 시황'
-          : detail.type === 'sector'
-          ? detail.id
+          : detail.type === 'sector-briefing'
+          ? sectorsById[detail.sectorId]?.name_ko ?? '섹터'
           : `${detail.ticker} · ${stocksByTicker[detail.ticker]?.name_ko ?? detail.ticker}`;
         return { crumb: '오늘의 브리핑 / 상세', title: label };
       }
@@ -232,11 +368,18 @@ export default function App() {
         return { crumb: '홈 / 마이페이지', title: '마이페이지' };
       case 'lens':
         return { crumb: '마이페이지 / 분석 렌즈', title: lensTicker ? `${lensTicker} 분석 렌즈` : '분석 렌즈' };
+      case 'sector-lens':
+        return {
+          crumb: '오늘의 브리핑 / 분석 렌즈',
+          title: lensSectorId ? `${sectorsById[lensSectorId]?.name_ko ?? ''} 분석 렌즈` : '분석 렌즈',
+        };
       default:
         return { crumb: '', title: '' };
     }
   }
-  const navActiveMap = { briefing: 'briefing', 'briefing-detail': 'briefing', mypage: 'mypage', lens: 'mypage' };
+  const navActiveMap = {
+    briefing: 'briefing', 'briefing-detail': 'briefing', mypage: 'mypage', lens: 'mypage', 'sector-lens': 'briefing',
+  };
 
   if (!authChecked) return null;
   if (!user) return <AuthPage onAuthed={handleAuthed} />;
@@ -258,7 +401,7 @@ export default function App() {
 
       <div className="main">
         <TopBar crumb={h.crumb} title={h.title}>
-          {view === 'lens' && lensTicker && (
+          {((view === 'lens' && lensTicker) || (view === 'sector-lens' && lensSectorId)) && (
             <LensTopActions onReset={handleLensReset} onRecommend={handleLensRecommend} />
           )}
         </TopBar>
@@ -275,8 +418,8 @@ export default function App() {
             <>
               {view === 'briefing' && (
                 <BriefingPage
-                  period={period}
-                  setPeriod={setPeriod}
+                  timeMode={timeMode}
+                  setTimeMode={setTimeMode}
                   briefingTab={briefingTab}
                   setBriefingTab={setBriefingTab}
                   stocks={stocks}
@@ -290,6 +433,27 @@ export default function App() {
                   briefingByTicker={briefingByTicker}
                   missingTickers={missingTickers}
                   marketOverview={briefing?.market_overview ?? null}
+                  onRefresh={handleRefreshBriefing}
+                  refreshBusy={refreshBusy}
+                  refreshError={refreshError}
+                  history={history}
+                  historyLoading={historyLoading}
+                  historyError={historyError}
+                  overviewHistory={overviewHistory}
+                  overviewHistoryLoading={overviewHistoryLoading}
+                  overviewHistoryError={overviewHistoryError}
+                  sectors={sectors}
+                  sectorWatch={sectorWatch}
+                  sectorWatchBusy={sectorWatchBusy}
+                  sectorWatchError={sectorWatchError}
+                  sectorSearch={sectorSearch}
+                  setSectorSearch={setSectorSearch}
+                  onAddSector={handleAddSector}
+                  sectorBriefingBySectorId={sectorBriefingBySectorId}
+                  missingSectorIds={missingSectorIds}
+                  sectorHistory={sectorHistory}
+                  sectorHistoryLoading={sectorHistoryLoading}
+                  sectorHistoryError={sectorHistoryError}
                 />
               )}
 
@@ -305,6 +469,12 @@ export default function App() {
                   briefingByTicker={briefingByTicker}
                   missingTickers={missingTickers}
                   marketOverview={briefing?.market_overview ?? null}
+                  sectorsById={sectorsById}
+                  sectorWatch={sectorWatch}
+                  onOpenSectorLens={openSectorLens}
+                  onToggleSectorWatch={handleToggleSectorWatch}
+                  sectorBriefingBySectorId={sectorBriefingBySectorId}
+                  missingSectorIds={missingSectorIds}
                 />
               )}
 
@@ -344,6 +514,34 @@ export default function App() {
                   <div className="maxw">
                     종목을 먼저 선택하세요.{' '}
                     <span style={{ color: 'var(--accent)', cursor: 'pointer' }} onClick={() => setView('mypage')}>마이페이지로 →</span>
+                  </div>
+                )
+              )}
+
+              {view === 'sector-lens' && (
+                lensSectorId && sectorsById[lensSectorId] ? (
+                  <LensPage
+                    kind="sector"
+                    backLabel="오늘의 브리핑으로"
+                    ticker={sectorsById[lensSectorId].name_ko}
+                    stock={sectorsById[lensSectorId]}
+                    lens={getSectorLens(lensSectorId)}
+                    updateLens={(fn) => updateSectorLensFor(lensSectorId, fn)}
+                    onBack={() => setView('briefing')}
+                    catGroups={catGroups}
+                    catLabel={catLabel}
+                    presets={presets}
+                    presetsByCode={presetsByCode}
+                    rec={recFor(sectorCodeOfSector(lensSectorId))}
+                    catSearchOpen={catSearchOpen}
+                    setCatSearchOpen={setCatSearchOpen}
+                    catSearchQuery={catSearchQuery}
+                    setCatSearchQuery={setCatSearchQuery}
+                  />
+                ) : (
+                  <div className="maxw">
+                    섹터를 먼저 선택하세요.{' '}
+                    <span style={{ color: 'var(--accent)', cursor: 'pointer' }} onClick={() => setView('briefing')}>오늘의 브리핑으로 →</span>
                   </div>
                 )
               )}

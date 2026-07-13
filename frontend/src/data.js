@@ -22,13 +22,6 @@ export const INVESTOR_TYPES = {
   aggressive: { name: '공격형', desc: '높은 변동성을 감수하고 수익을 추구합니다.' },
 };
 
-// 하루 4번(장시작·장중·장마감·휴장 중 1회) 수집 주기 기준 — n일 = 4n회.
-export const PERIODS = {
-  '1d': { label: '하루 (최근 4회)', since: '최근 하루', mult: 4 },
-  '3d': { label: '3일 (최근 12회)', since: '최근 3일', mult: 12 },
-  '7d': { label: '7일 (최근 28회)', since: '최근 7일', mult: 28 },
-};
-
 // 백엔드 sentiment: "positive" | "neutral" | "negative" | null
 export const SENT_LABEL = {
   positive: ['긍정', 'pos'],

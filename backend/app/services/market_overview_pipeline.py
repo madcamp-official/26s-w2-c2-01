@@ -55,11 +55,11 @@ def _apply_render(overview: MarketOverview, render: MarketOverviewRender, model_
     overview.model = model_name
 
 
-def generate_market_overview(db: Session, briefing_date: date | None = None) -> MarketOverview:
+def generate_market_overview(db: Session, briefing_date: date | None = None, force: bool = False) -> MarketOverview:
     briefing_date = briefing_date or date.today()
 
     cached = db.scalar(select(MarketOverview).where(MarketOverview.briefing_date == briefing_date))
-    if cached and is_fresh(db, cached.generated_at, settings.REFRESH_INTERVAL_HOURS):
+    if cached and not force and is_fresh(db, cached.generated_at, settings.REFRESH_INTERVAL_HOURS):
         return cached
 
     news = _fetch_general_news()

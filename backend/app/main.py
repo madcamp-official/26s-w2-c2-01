@@ -5,7 +5,7 @@ from apscheduler.triggers.cron import CronTrigger
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import analysis, auth, briefings, stocks, users, watchlists
+from app.api.routes import analysis, auth, briefings, sector_watchlists, stocks, users, watchlists
 from app.core.config import settings
 from app.jobs.scheduler import run_refresh_cycle
 
@@ -46,6 +46,7 @@ app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(stocks.router)
 app.include_router(watchlists.router)
+app.include_router(sector_watchlists.router)
 app.include_router(briefings.router)
 app.include_router(analysis.router)
 

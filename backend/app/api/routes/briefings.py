@@ -1,17 +1,27 @@
 from datetime import date
 
-from fastapi import APIRouter, Depends
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
+from app.batch.collect_news import FinnhubNotConfigured
+from app.batch.collect_news import run as collect_news_run
+from app.crud.sector_watchlist import list_sector_watchlist
 from app.crud.watchlist import list_watchlist
 from app.db.session import get_db
-from app.models.briefing import DailyBriefing
+from app.models.briefing import DailyBriefing, MarketOverview, SectorBriefing
 from app.models.user import User
-from app.schemas.briefing import TodayBriefingResponse
+from app.schemas.briefing import (
+    DailyBriefingRead,
+    MarketOverviewRead,
+    SectorBriefingRead,
+    TodayBriefingResponse,
+)
 from app.services.briefing_pipeline import generate_daily_briefing
+from app.services.freshness import is_same_calendar_day
 from app.services.market_overview_pipeline import generate_market_overview
+from app.services.sector_briefing_pipeline import generate_sector_briefing
 
 router = APIRouter(prefix="/briefings", tags=["briefings"])
 
@@ -44,6 +54,26 @@ def today_briefing(current_user: User = Depends(get_current_user), db: Session =
         except ValueError:
             still_missing.append(ticker)
 
+    sector_watchlist = list_sector_watchlist(db, current_user.id)
+    sector_ids = [sw.sector_id for sw in sector_watchlist]
+
+    sector_briefings: list[SectorBriefing] = []
+    if sector_ids:
+        stmt = select(SectorBriefing).where(
+            SectorBriefing.sector_id.in_(sector_ids), SectorBriefing.briefing_date == today
+        )
+        sector_briefings = list(db.scalars(stmt).all())
+
+    found_sector_ids = {b.sector_id for b in sector_briefings}
+    missing_sector_ids = [sid for sid in sector_ids if sid not in found_sector_ids]
+
+    still_missing_sectors: list[int] = []
+    for sector_id in missing_sector_ids:
+        try:
+            sector_briefings.append(generate_sector_briefing(db, sector_id, briefing_date=today))
+        except ValueError:
+            still_missing_sectors.append(sector_id)
+
     try:
         market_overview = generate_market_overview(db, briefing_date=today)
     except Exception as e:  # noqa: BLE001 - 시황 생성 실패해도 종목 브리핑은 정상 반환
@@ -54,4 +84,103 @@ def today_briefing(current_user: User = Depends(get_current_user), db: Session =
         market_overview=market_overview,
         stocks=briefings,
         missing_tickers=still_missing,
+        sector_briefings=sector_briefings,
+        missing_sectors=still_missing_sectors,
     )
+
+
+@router.post("/refresh", response_model=TodayBriefingResponse)
+def refresh_briefing(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """
+    사용자가 원할 때 직접 오늘자 브리핑을 새로고침한다 — REFRESH_INTERVAL_HOURS
+    신선도와 무관하게 강제로 재생성한다. 정기 스케줄과 별개로 Claude 호출이
+    추가로 늘어나는 셈이라, 유저당 하루 1회로 제한한다(User.last_manual_refresh_at).
+    """
+    if is_same_calendar_day(db, current_user.last_manual_refresh_at):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="오늘은 이미 새로고침을 사용했습니다. 내일 다시 시도해주세요.",
+        )
+
+    try:
+        collect_news_run()
+    except FinnhubNotConfigured:
+        pass
+    except Exception as e:  # noqa: BLE001 - 뉴스 수집이 실패해도 강제 재생성은 계속 시도
+        print(f"수동 새로고침 - 뉴스 재수집 중 오류: {e}")
+
+    today = date.today()
+    watchlist = list_watchlist(db, current_user.id)
+    tickers = [w.ticker for w in watchlist]
+
+    briefings: list[DailyBriefing] = []
+    still_missing: list[str] = []
+    for ticker in tickers:
+        try:
+            briefings.append(generate_daily_briefing(db, ticker, briefing_date=today, force=True))
+        except ValueError:
+            still_missing.append(ticker)
+
+    sector_ids = [sw.sector_id for sw in list_sector_watchlist(db, current_user.id)]
+    sector_briefings: list[SectorBriefing] = []
+    still_missing_sectors: list[int] = []
+    for sector_id in sector_ids:
+        try:
+            sector_briefings.append(generate_sector_briefing(db, sector_id, briefing_date=today, force=True))
+        except ValueError:
+            still_missing_sectors.append(sector_id)
+
+    try:
+        market_overview = generate_market_overview(db, briefing_date=today, force=True)
+    except Exception as e:  # noqa: BLE001 - 시황 생성 실패해도 종목 브리핑은 정상 반환
+        print(f"수동 새로고침 - 전체 시황 생성 실패: {e}")
+        market_overview = None
+
+    current_user.last_manual_refresh_at = db.scalar(select(func.now())).replace(tzinfo=None)
+    db.commit()
+
+    return TodayBriefingResponse(
+        market_overview=market_overview,
+        stocks=briefings,
+        missing_tickers=still_missing,
+        sector_briefings=sector_briefings,
+        missing_sectors=still_missing_sectors,
+    )
+
+
+@router.get("/history", response_model=list[DailyBriefingRead])
+def briefing_history(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """관심종목 전체의 과거 브리핑을 날짜 역순으로 반환한다 (Claude 재호출 없이 DB 조회만)."""
+    watchlist = list_watchlist(db, current_user.id)
+    tickers = [w.ticker for w in watchlist]
+    if not tickers:
+        return []
+
+    stmt = (
+        select(DailyBriefing)
+        .where(DailyBriefing.ticker.in_(tickers))
+        .order_by(DailyBriefing.briefing_date.desc(), DailyBriefing.ticker)
+    )
+    return list(db.scalars(stmt).all())
+
+
+@router.get("/history/overview", response_model=list[MarketOverviewRead])
+def market_overview_history(db: Session = Depends(get_db)):
+    """전체 시황(종목 무관)의 과거 이력을 날짜 역순으로 반환한다. 종목별과 달리 유저 무관 전역 데이터."""
+    stmt = select(MarketOverview).order_by(MarketOverview.briefing_date.desc())
+    return list(db.scalars(stmt).all())
+
+
+@router.get("/history/sectors", response_model=list[SectorBriefingRead])
+def sector_briefing_history(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """관심 섹터 전체의 과거 브리핑을 날짜 역순으로 반환한다 (Claude 재호출 없이 DB 조회만)."""
+    sector_ids = [sw.sector_id for sw in list_sector_watchlist(db, current_user.id)]
+    if not sector_ids:
+        return []
+
+    stmt = (
+        select(SectorBriefing)
+        .where(SectorBriefing.sector_id.in_(sector_ids))
+        .order_by(SectorBriefing.briefing_date.desc(), SectorBriefing.sector_id)
+    )
+    return list(db.scalars(stmt).all())

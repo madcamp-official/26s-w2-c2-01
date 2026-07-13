@@ -83,9 +83,19 @@ export const addWatchlist = (ticker) => request('/watchlist', { method: 'POST', 
 export const removeWatchlist = (ticker) => request(`/watchlist/${ticker}`, { method: 'DELETE' });
 export const watchlistRanking = (limit = 10) => request(`/watchlist/ranking/top?limit=${limit}`, { auth: false });
 
+// ── 관심 섹터 ──
+export const listSectorWatchlist = () => request('/sector-watchlist');
+export const addSectorWatchlist = (sectorId) =>
+  request('/sector-watchlist', { method: 'POST', body: { sector_id: sectorId } });
+export const removeSectorWatchlist = (sectorId) => request(`/sector-watchlist/${sectorId}`, { method: 'DELETE' });
+
 // ── 분석 카테고리 / 성향 프리셋 ──
 export const listAnalysisCategories = () => request('/analysis-categories', { auth: false });
 export const listAnalysisPresets = () => request('/analysis-presets', { auth: false });
 
 // ── 오늘의 브리핑 ──
 export const getTodayBriefing = () => request('/briefings/today');
+export const refreshBriefing = () => request('/briefings/refresh', { method: 'POST' });
+export const getBriefingHistory = () => request('/briefings/history');
+export const getMarketOverviewHistory = () => request('/briefings/history/overview');
+export const getSectorBriefingHistory = () => request('/briefings/history/sectors');

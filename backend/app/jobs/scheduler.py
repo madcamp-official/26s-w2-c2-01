@@ -14,7 +14,7 @@ from datetime import date
 from app.batch.collect_news import FinnhubNotConfigured
 from app.batch.collect_news import run as collect_news_run
 from app.db.session import SessionLocal
-from app.jobs import generate_briefings
+from app.jobs import generate_briefings, generate_sector_briefings
 from app.services.market_overview_pipeline import generate_market_overview
 
 # Windows 콘솔(cp949) 인코딩 대비 — collect_news.py와 동일한 이유.
@@ -44,6 +44,8 @@ def run_refresh_cycle() -> None:
 
     print("=== 정기 갱신: 종목 브리핑 재생성 ===")
     generate_briefings.run()
+    print("=== 정기 갱신: 섹터 브리핑 재생성 ===")
+    generate_sector_briefings.run()
     print("=== 정기 갱신 완료 ===")
 
 

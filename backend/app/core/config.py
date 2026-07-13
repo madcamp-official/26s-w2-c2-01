@@ -1,8 +1,16 @@
+from pathlib import Path
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# 상대경로("​.env")는 프로세스가 어느 작업 디렉터리에서 기동되든 backend/.env를
+# 안정적으로 찾도록 이 파일(app/core/config.py) 위치 기준 절대경로로 고정한다 —
+# uvicorn --app-dir는 sys.path만 바꿀 뿐 cwd를 바꾸지 않아, 실행 위치에 따라
+# .env를 못 찾고 ANTHROPIC_API_KEY 등이 조용히 빈 문자열(스텁 폴백)이 되는 문제가 있었다.
+ENV_FILE = Path(__file__).resolve().parent.parent.parent / ".env"
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(env_file=ENV_FILE, extra="ignore")
 
     DATABASE_URL: str = "postgresql+psycopg://trade_chaser:trade_chaser@localhost:5432/trade_chaser"
 

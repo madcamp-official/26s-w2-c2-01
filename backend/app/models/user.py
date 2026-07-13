@@ -20,3 +20,6 @@ class User(Base):
     investor_type: Mapped[str] = mapped_column(String(20), nullable=False, default="balanced")
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
+    #: 하루 1회 수동 새로고침(POST /briefings/refresh) 제한을 추적한다.
+    #: null이면 아직 한 번도 안 썼거나, 오늘 날짜가 아니면 다시 쓸 수 있다.
+    last_manual_refresh_at: Mapped[datetime | None] = mapped_column(nullable=True)
