@@ -10,6 +10,7 @@ import re
 from dataclasses import dataclass
 
 from app.core.finnhub_client import FinnhubArticle
+from app.models.news_article import NewsArticle
 
 TRUSTED_SOURCES = {
     "associated press",
@@ -33,7 +34,7 @@ GENERIC_HEADLINE_PATTERNS = (
 )
 
 CORPORATE_SUFFIXES = re.compile(
-    r"\s+(?:INCORPORATED|INC|CORPORATION|CORP|COMPANY|CO|LIMITED|LTD|PLC|COMMON STOCK)$",
+    r"\s+(?:INCORPORATED|INC|CORPORATION|CORP|COMPANY|CO|LIMITED|LTD|PLC|COMMON STOCK)\.?$",
     re.IGNORECASE,
 )
 
@@ -129,3 +130,52 @@ def select_relevant_articles(
         needed = max(0, min(min_articles, limit) - len(selected))
         selected.extend(fallback[:needed])
     return [item.article for item in selected[:limit]]
+
+
+def select_persisted_relevant_articles(
+    articles: list[NewsArticle],
+    *,
+    company_names_by_ticker: dict[str, list[str | None]],
+    min_score: int,
+    limit: int,
+    per_ticker_limit: int | None = None,
+) -> list[NewsArticle]:
+    """DB에 이미 저장된 기사도 브리핑 직전에 재검사한다.
+
+    DB에는 Finnhub related 필드를 저장하지 않으므로 제목·요약·출처만 다시 채점한다.
+    호출자가 개별 종목과 섹터의 목적에 맞는 최소 점수를 명시한다.
+    """
+    threshold = min_score
+    scored: list[tuple[int, NewsArticle]] = []
+    for article in articles:
+        ticker = (article.ticker or "").upper()
+        candidate = FinnhubArticle(
+            headline=article.title,
+            url=article.url or "",
+            source=article.source,
+            summary=article.summary,
+            ts=int(article.published_at.timestamp()) if article.published_at else None,
+        )
+        score = score_article_relevance(
+            candidate,
+            ticker=ticker,
+            company_names=company_names_by_ticker.get(ticker, []),
+        )
+        if score >= threshold:
+            scored.append((score, article))
+
+    scored.sort(
+        key=lambda item: (item[0], item[1].published_at is not None, item[1].published_at),
+        reverse=True,
+    )
+    selected: list[NewsArticle] = []
+    ticker_counts: dict[str, int] = {}
+    for _, article in scored:
+        ticker = (article.ticker or "").upper()
+        if per_ticker_limit is not None and ticker_counts.get(ticker, 0) >= per_ticker_limit:
+            continue
+        selected.append(article)
+        ticker_counts[ticker] = ticker_counts.get(ticker, 0) + 1
+        if len(selected) >= limit:
+            break
+    return selected

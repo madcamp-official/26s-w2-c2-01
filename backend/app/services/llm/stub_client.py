@@ -4,7 +4,7 @@
 end-to-end로 돌려보고 프론트와 통합 테스트하는 용도.
 """
 
-from app.schemas.llm import BriefingRender, FactItem, FactsExtraction, MarketOverviewRender, ReasonItem
+from app.schemas.llm import BriefingRender, FactItem, FactsExtraction, MarketOverviewRender
 from app.services.llm.base import BriefingLLMClient
 
 
@@ -51,15 +51,8 @@ class StubBriefingLLMClient(BriefingLLMClient):
             positive_factors=[],
             negative_factors=[],
             watch_issues=[f"{ticker_label} 관련 뉴스 직접 확인 필요 (LLM 파이프라인 미연동)"],
-            reasons=[
-                ReasonItem(
-                    factor=issue,
-                    impact="중립",
-                    explain="스텁 데이터 - 실제 근거 아님",
-                    source_url=None,
-                )
-                for issue in facts.key_issues
-            ],
+            # 실제 출처가 없는 더미 항목은 근거 목록에 넣지 않는다.
+            reasons=[],
             today_actions=["LLM API 연동 후 실제 브리핑으로 교체 예정"],
         )
 

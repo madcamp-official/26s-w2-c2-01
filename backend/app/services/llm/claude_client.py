@@ -42,6 +42,10 @@ RENDER_SYSTEM_PROMPT = """\
    관점으로 각각 재해석될 수 있다면 해당하는 모든 항목에 나눠 담는다. 정말 그
    관점에 해당하는 근거가 facts에 전혀 없을 때만 빈 배열로 남긴다 — 없는데
    지어내는 건 규칙 2 위반이다.
+8. URL은 reasons의 source_url 필드에만 넣는다. summary, factor, explain,
+   positive_factors, negative_factors, watch_issues, today_actions 등 사람이 읽는
+   문장에는 원문 URL이나 마크다운 링크를 절대 포함하지 않는다.
+9. 연결할 source_url이 없는 내용은 reasons 항목으로 만들지 않는다.
 """
 
 MARKET_SYSTEM_PROMPT = """\
@@ -60,6 +64,8 @@ MARKET_SYSTEM_PROMPT = """\
 7. 매매 지시를 하지 않는다.
 8. 출력 끝에 "본 브리핑은 정보 제공 목적이며 투자 권유가 아닙니다"를 포함한다.
 9. 출력은 지정 JSON 스키마만.
+10. URL은 reasons의 source_url 필드에만 넣고, 사람이 읽는 문장에는 URL이나
+    마크다운 링크를 포함하지 않는다. source_url이 없는 reasons 항목은 만들지 않는다.
 """
 
 

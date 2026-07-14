@@ -6,7 +6,11 @@ from app.batch.collect_news import collect_for_ticker
 from app.core.finnhub_client import FinnhubArticle
 from app.models.news_article import NewsArticle
 from app.services.news_document import format_news_article
-from app.services.news_relevance import score_article_relevance, select_relevant_articles
+from app.services.news_relevance import (
+    score_article_relevance,
+    select_persisted_relevant_articles,
+    select_relevant_articles,
+)
 
 
 def article(
@@ -27,6 +31,15 @@ def article(
 
 
 class NewsRelevanceTest(TestCase):
+    def test_company_suffix_with_period_is_removed_for_alias_matching(self) -> None:
+        direct = article("Nvidia announces a new AI accelerator", related="")
+
+        score = score_article_relevance(
+            direct, ticker="NVDA", company_names=["NVIDIA Corp."]
+        )
+
+        self.assertGreaterEqual(score, 6)
+
     def test_direct_company_mention_outranks_related_tag_only(self) -> None:
         direct = article("Apple raises its iPhone shipment forecast")
         indirect = article("American Express remains a top holding")
@@ -80,6 +93,73 @@ class NewsRelevanceTest(TestCase):
 
         self.assertIn("게시 시각: 2026-07-14 10:30 KST", document)
         self.assertIn("[AAPL]", document)
+
+    def test_persisted_filter_removes_unrelated_nvda_articles(self) -> None:
+        rows = [
+            NewsArticle(
+                ticker="NVDA",
+                title="SpaceX receives a new valuation",
+                url="https://example.com/spacex",
+                source="Yahoo",
+                summary="Space company update",
+                published_at=datetime(2026, 7, 14, tzinfo=timezone.utc),
+            ),
+            NewsArticle(
+                ticker="NVDA",
+                title="Nvidia changes its Asia AI chip strategy",
+                url="https://example.com/nvidia",
+                source="Reuters",
+                summary="Nvidia updated its customer plan.",
+                published_at=datetime(2026, 7, 14, tzinfo=timezone.utc),
+            ),
+        ]
+
+        selected = select_persisted_relevant_articles(
+            rows,
+            company_names_by_ticker={"NVDA": ["NVIDIA Corp."]},
+            min_score=4,
+            limit=10,
+        )
+
+        self.assertEqual([row.title for row in selected], ["Nvidia changes its Asia AI chip strategy"])
+
+    def test_stock_filter_rejects_incidental_summary_only_mention(self) -> None:
+        row = NewsArticle(
+            ticker="NVDA",
+            title="SoftBank CEO discusses global AI investment",
+            url="https://example.com/softbank",
+            source="Yahoo",
+            summary="AI valuations have risen at companies like Nvidia.",
+            published_at=datetime(2026, 7, 14, tzinfo=timezone.utc),
+        )
+
+        selected = select_persisted_relevant_articles(
+            [row],
+            company_names_by_ticker={"NVDA": ["NVIDIA Corp."]},
+            min_score=4,
+            limit=10,
+        )
+
+        self.assertEqual(selected, [])
+
+    def test_sector_filter_can_keep_summary_only_ecosystem_article(self) -> None:
+        row = NewsArticle(
+            ticker="NVDA",
+            title="Super Micro launches Vera Rubin infrastructure blueprint",
+            url="https://example.com/smci",
+            source="Yahoo",
+            summary="The system is built around the NVIDIA Vera Rubin platform.",
+            published_at=datetime(2026, 7, 14, tzinfo=timezone.utc),
+        )
+
+        selected = select_persisted_relevant_articles(
+            [row],
+            company_names_by_ticker={"NVDA": ["NVIDIA Corp."]},
+            min_score=3,
+            limit=10,
+        )
+
+        self.assertEqual(selected, [row])
 
     @patch("app.batch.collect_news.create_news_article")
     @patch("app.batch.collect_news.existing_urls", return_value=set())

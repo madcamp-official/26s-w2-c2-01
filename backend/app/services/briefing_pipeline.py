@@ -21,10 +21,12 @@ from app.models.briefing import DailyBriefing
 from app.models.news_article import NewsArticle
 from app.models.stock import Stock
 from app.schemas.llm import BriefingRender
+from app.services.briefing_sanitizer import sanitize_briefing_render
 from app.services.freshness import is_fresh
 from app.services.llm import get_llm_client
 from app.services.market_sessions import BriefingSession, current_briefing_date, current_session
 from app.services.news_document import format_news_article
+from app.services.news_relevance import select_persisted_relevant_articles
 
 
 def _build_document_text(articles: list[NewsArticle]) -> str:
@@ -41,6 +43,7 @@ def _get_default_preset(db: Session) -> AnalysisPreset | None:
 
 def _apply_render(briefing: DailyBriefing, render: BriefingRender, model_name: str) -> None:
     """LLM 렌더 결과를 DailyBriefing 행에 반영한다. 신규 생성/기존 갱신 양쪽에서 공용으로 쓴다."""
+    render = sanitize_briefing_render(render)
     briefing.sentiment = render.sentiment
     briefing.summary = render.summary
     briefing.positive_factors = render.positive_factors
@@ -82,9 +85,18 @@ def generate_daily_briefing(
             select(NewsArticle)
             .where(NewsArticle.ticker == ticker, NewsArticle.published_at >= since)
             .order_by(NewsArticle.published_at.desc())
-            .limit(10)
+            .limit(50)
         ).all()
     )
+    if settings.ENABLE_NEWS_RELEVANCE_FILTER:
+        articles = select_persisted_relevant_articles(
+            articles,
+            company_names_by_ticker={ticker: [stock.name_en, stock.name_ko]},
+            min_score=settings.NEWS_RELEVANCE_MIN_SCORE,
+            limit=10,
+        )
+    else:
+        articles = articles[:10]
 
     llm = get_llm_client()
 

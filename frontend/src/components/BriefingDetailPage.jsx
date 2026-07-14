@@ -22,6 +22,26 @@ function formatUpdateTime(value) {
   }).format(new Date(normalized));
 }
 
+function CitationList({ reasons }) {
+  const cited = (reasons ?? []).filter((reason) => reason?.source_url);
+  if (cited.length === 0) return null;
+  return (
+    <div className="citelist">
+      {cited.map((reason, i) => (
+        <div key={`${reason.source_url}-${i}`} className="citerow">
+          <Icon size={13}>
+            <path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1" />
+            <path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1" />
+          </Icon>
+          <a href={reason.source_url} target="_blank" rel="noreferrer">
+            {reason.factor ?? reason.explain ?? '관련 기사'}
+          </a>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function TodaySessionTabs({ sessions, selected, onSelect, getUpdatedAt }) {
   return (
     <div className="session-tabs" aria-label="오늘의 장 세션">
@@ -74,23 +94,7 @@ function BriefingBlock({ row }) {
           <div className="factbox neu"><div className="ft">확인할 것</div>{row.watch_issues.map((x, i) => <div key={i}>{typeof x === 'string' ? x : JSON.stringify(x)}</div>)}</div>
         )}
       </div>
-      {row.reasons?.length > 0 && (
-        <div className="citelist">
-          {row.reasons.map((reason, i) => (
-            <div key={i} className="citerow">
-              <Icon size={13}>
-                <path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1" />
-                <path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1" />
-              </Icon>
-              {reason.source_url ? (
-                <a href={reason.source_url} target="_blank" rel="noreferrer">{reason.factor ?? reason.explain ?? reason.source_url}</a>
-              ) : (
-                <span>{reason.factor ?? reason.explain ?? JSON.stringify(reason)}</span>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
+      <CitationList reasons={row.reasons} />
     </div>
   );
 }
@@ -279,23 +283,7 @@ export default function BriefingDetailPage({
                   <div className="factbox neu"><div className="ft">확인할 것</div>{marketOverview.watch_issues.map((x, i) => <div key={i}>{typeof x === 'string' ? x : JSON.stringify(x)}</div>)}</div>
                 )}
               </div>
-              {marketOverview.reasons?.length > 0 && (
-                <div className="citelist">
-                  {marketOverview.reasons.map((reason, i) => (
-                    <div key={i} className="citerow">
-                      <Icon size={13}>
-                        <path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1" />
-                        <path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1" />
-                      </Icon>
-                      {reason.source_url ? (
-                        <a href={reason.source_url} target="_blank" rel="noreferrer">{reason.factor ?? reason.explain ?? reason.source_url}</a>
-                      ) : (
-                        <span>{reason.factor ?? reason.explain ?? JSON.stringify(reason)}</span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
+              <CitationList reasons={marketOverview.reasons} />
             </>
           ) : (
             <div className="strip">아직 전체 시황 브리핑이 생성되지 않았습니다. 뉴스 수집·분석 파이프라인이 연결되면 이곳에 표시됩니다.</div>
@@ -365,23 +353,7 @@ export default function BriefingDetailPage({
                   <div className="factbox neu"><div className="ft">확인할 것</div>{b.watch_issues.map((x, i) => <div key={i}>{typeof x === 'string' ? x : JSON.stringify(x)}</div>)}</div>
                 )}
               </div>
-              {b.reasons?.length > 0 && (
-                <div className="citelist">
-                  {b.reasons.map((r, i) => (
-                    <div key={i} className="citerow">
-                      <Icon size={13}>
-                        <path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1" />
-                        <path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1" />
-                      </Icon>
-                      {r.source_url ? (
-                        <a href={r.source_url} target="_blank" rel="noreferrer">{r.factor ?? r.explain ?? r.source_url}</a>
-                      ) : (
-                        <span>{r.factor ?? r.explain ?? JSON.stringify(r)}</span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
+              <CitationList reasons={b.reasons} />
             </>
           ) : (
             <div className="strip" style={{ marginTop: 4 }}>
@@ -452,23 +424,7 @@ export default function BriefingDetailPage({
                 <div className="factbox neu"><div className="ft">확인할 것</div>{b.watch_issues.map((x, i) => <div key={i}>{typeof x === 'string' ? x : JSON.stringify(x)}</div>)}</div>
               )}
             </div>
-            {b.reasons?.length > 0 && (
-              <div className="citelist">
-                {b.reasons.map((r, i) => (
-                  <div key={i} className="citerow">
-                    <Icon size={13}>
-                      <path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1" />
-                      <path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1" />
-                    </Icon>
-                    {r.source_url ? (
-                      <a href={r.source_url} target="_blank" rel="noreferrer">{r.factor ?? r.explain ?? r.source_url}</a>
-                    ) : (
-                      <span>{r.factor ?? r.explain ?? JSON.stringify(r)}</span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
+            <CitationList reasons={b.reasons} />
           </>
         ) : (
           <div className="strip" style={{ marginTop: 4 }}>

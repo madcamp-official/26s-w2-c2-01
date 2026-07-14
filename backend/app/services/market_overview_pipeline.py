@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.models.briefing import MarketOverview
 from app.schemas.llm import FactItem, FactsExtraction, MarketOverviewRender
+from app.services.briefing_sanitizer import sanitize_market_overview_render
 from app.services.finnhub_client import FinnhubClient, FinnhubError
 from app.services.freshness import is_fresh
 from app.services.llm import get_llm_client
@@ -65,6 +66,7 @@ def _fetch_general_news() -> list[dict]:
 
 
 def _apply_render(overview: MarketOverview, render: MarketOverviewRender, model_name: str) -> None:
+    render = sanitize_market_overview_render(render)
     overview.summary = render.summary
     overview.sentiment = render.sentiment
     overview.positive_factors = render.positive_factors

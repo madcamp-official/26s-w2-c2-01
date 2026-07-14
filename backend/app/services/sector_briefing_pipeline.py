@@ -24,10 +24,12 @@ from app.models.news_article import NewsArticle
 from app.models.sector import Sector
 from app.models.stock import Stock
 from app.schemas.llm import BriefingRender
+from app.services.briefing_sanitizer import sanitize_briefing_render
 from app.services.freshness import is_fresh
 from app.services.llm import get_llm_client
 from app.services.market_sessions import BriefingSession, current_briefing_date, current_session
 from app.services.news_document import format_news_article
+from app.services.news_relevance import select_persisted_relevant_articles
 
 
 def _build_document_text(articles: list[NewsArticle]) -> str:
@@ -43,6 +45,7 @@ def _get_default_preset(db: Session) -> AnalysisPreset | None:
 
 
 def _apply_render(briefing: SectorBriefing, render: BriefingRender, model_name: str) -> None:
+    render = sanitize_briefing_render(render)
     briefing.sentiment = render.sentiment
     briefing.summary = render.summary
     briefing.positive_factors = render.positive_factors
@@ -78,7 +81,8 @@ def generate_sector_briefing(
     if not sector:
         raise ValueError(f"등록되지 않은 섹터입니다: {sector_id}")
 
-    tickers = list(db.scalars(select(Stock.ticker).where(Stock.sector_id == sector_id)).all())
+    sector_stocks = list(db.scalars(select(Stock).where(Stock.sector_id == sector_id)).all())
+    tickers = [stock.ticker for stock in sector_stocks]
 
     since = datetime.combine(briefing_date - timedelta(days=news_lookback_days), datetime.min.time())
     articles = list(
@@ -86,9 +90,23 @@ def generate_sector_briefing(
             select(NewsArticle)
             .where(NewsArticle.ticker.in_(tickers), NewsArticle.published_at >= since)
             .order_by(NewsArticle.published_at.desc())
-            .limit(10)
+            .limit(100)
         ).all()
     ) if tickers else []
+    if settings.ENABLE_NEWS_RELEVANCE_FILTER:
+        articles = select_persisted_relevant_articles(
+            articles,
+            company_names_by_ticker={
+                stock.ticker: [stock.name_en, stock.name_ko] for stock in sector_stocks
+            },
+            # Sector analysis keeps summary-only ecosystem/supply-chain coverage,
+            # while individual stock briefings use the stricter configured score.
+            min_score=max(3, settings.NEWS_RELEVANCE_MIN_SCORE - 1),
+            limit=10,
+            per_ticker_limit=2,
+        )
+    else:
+        articles = articles[:10]
 
     llm = get_llm_client()
 

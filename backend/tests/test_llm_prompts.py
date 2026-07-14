@@ -17,3 +17,6 @@ class LlmPromptTest(TestCase):
             "disclaimer",
         ):
             self.assertIn(field, RENDER_SYSTEM_PROMPT)
+
+        self.assertIn("source_url 필드에만", RENDER_SYSTEM_PROMPT)
+        self.assertIn("source_url이 없는 내용은 reasons 항목으로 만들지 않는다", RENDER_SYSTEM_PROMPT)
