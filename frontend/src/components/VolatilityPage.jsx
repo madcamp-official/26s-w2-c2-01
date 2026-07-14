@@ -20,6 +20,15 @@ function formatMarketCap(value) {
   return `$${(number / 1_000_000).toFixed(0)}M`;
 }
 
+function formatDollarVolume(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number) || number <= 0) return '-';
+  if (number >= 1_000_000_000) return `$${(number / 1_000_000_000).toFixed(1)}B`;
+  if (number >= 1_000_000) return `$${(number / 1_000_000).toFixed(1)}M`;
+  if (number >= 1_000) return `$${(number / 1_000).toFixed(0)}K`;
+  return `$${number.toFixed(0)}`;
+}
+
 function formatUpdatedAt(value) {
   if (!value) return '';
   const date = new Date(value);
@@ -52,8 +61,10 @@ function VolatilityRow({ rank, metrics, stock, inWatch, adding, onAddOrOpen }) {
         <span>전일 변동폭</span>
       </span>
       <span className="vol-stat">
-        <b>{metrics.premarket_relative_volume == null ? '대체 지표' : `${formatNumber(metrics.premarket_relative_volume)}배`}</b>
-        <span>프리마켓 거래량</span>
+        <b>{metrics.premarket_relative_volume == null
+          ? formatDollarVolume(metrics.premarket_dollar_volume)
+          : `${formatNumber(metrics.premarket_relative_volume)}배`}</b>
+        <span>{metrics.premarket_relative_volume == null ? '프리마켓 거래대금(대체 지표)' : '프리마켓 거래량'}</span>
       </span>
       <span className="vol-stat vol-cap">
         <b>{formatMarketCap(metrics.market_cap_usd)}</b>

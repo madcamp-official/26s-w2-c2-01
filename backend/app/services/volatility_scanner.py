@@ -482,6 +482,11 @@ class VolatilityScanner:
                             "premarket_average_volume_same_time": snapshot["historical_average_volume"],
                             "premarket_historical_sessions": snapshot["historical_sessions"],
                             "premarket_relative_volume": snapshot["relative_volume"],
+                            # relative_volume이 None일 때(20일치 동시간대 히스토리 부족)
+                            # _score()가 이 절대 달러 거래량으로 대체 채점한다 — 프론트가
+                            # "대체 지표"라고만 표시하고 실제 수치는 안 보여주던 문제를
+                            # 고치려면 이 값 자체를 함께 내려줘야 한다.
+                            "premarket_dollar_volume": round(float(snapshot["volume"]) * float(snapshot["price"]), 2),
                             "premarket_volume_method": volume_method,
                             "news_catalyst_confirmed": news_count > 0,
                             "news_catalyst_count": news_count,
