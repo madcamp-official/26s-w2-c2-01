@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 
 from app.schemas.llm import BriefingRender, MarketOverviewRender
+from app.services.llm.output_validation import validate_one_line_summary
 
 MARKDOWN_LINK = re.compile(r"\[([^\]]+)]\(https?://[^\s)]+\)", re.IGNORECASE)
 RAW_URL = re.compile(r"https?://\S+", re.IGNORECASE)
@@ -19,7 +20,7 @@ def _clean_text(value: str) -> str:
 def _clean_common(render) -> None:
     render.summary = _clean_text(render.summary)
     if hasattr(render, "one_line_summary"):
-        render.one_line_summary = _clean_text(render.one_line_summary)
+        render.one_line_summary = validate_one_line_summary(_clean_text(render.one_line_summary))
     render.positive_factors = [text for item in render.positive_factors if (text := _clean_text(item))]
     render.negative_factors = [text for item in render.negative_factors if (text := _clean_text(item))]
     render.watch_issues = [text for item in render.watch_issues if (text := _clean_text(item))]

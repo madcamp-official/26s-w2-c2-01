@@ -24,7 +24,11 @@ from app.services.llm.claude_client import (
     MARKET_SYSTEM_PROMPT,
     RENDER_SYSTEM_PROMPT,
 )
-from app.services.llm.output_validation import find_malformed_strings
+from app.services.llm.output_validation import (
+    ONE_LINE_SUMMARY_RETRY_INSTRUCTION,
+    find_malformed_strings,
+    validate_render_output,
+)
 
 
 class OllamaBriefingLLMClient(BriefingLLMClient):
@@ -35,6 +39,7 @@ class OllamaBriefingLLMClient(BriefingLLMClient):
     def _chat(self, *, system_prompt: str, user_prompt: str, schema: type):
         """구조화 출력을 요청하고, 실패하면 1회만 재시도한다 (claude_client.py와 동일한 정책)."""
         last_error: Exception | None = None
+        retry_prompt = user_prompt
         for _ in range(2):  # 최초 시도 + 1회 재시도
             try:
                 resp = self._client.post(
@@ -43,7 +48,7 @@ class OllamaBriefingLLMClient(BriefingLLMClient):
                         "model": self.model_name,
                         "messages": [
                             {"role": "system", "content": system_prompt},
-                            {"role": "user", "content": user_prompt},
+                            {"role": "user", "content": retry_prompt},
                         ],
                         "format": schema.model_json_schema(),
                         "options": {"temperature": 0},
@@ -56,9 +61,11 @@ class OllamaBriefingLLMClient(BriefingLLMClient):
                 garbage = find_malformed_strings(parsed.model_dump())
                 if garbage:
                     raise RuntimeError(f"깨진 출력 감지: {garbage[:2]!r}")
-                return parsed
+                return validate_render_output(parsed)
             except Exception as exc:  # noqa: BLE001 - API/파싱/검증 실패 시 재시도, 최종 실패는 위로 전파
                 last_error = exc
+                if "one_line_summary" in schema.model_fields:
+                    retry_prompt = f"{user_prompt}\n\n{ONE_LINE_SUMMARY_RETRY_INSTRUCTION}"
         raise RuntimeError(f"Ollama 구조화 출력 생성 실패(재시도 포함): {last_error}") from last_error
 
     def extract_facts(

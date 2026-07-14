@@ -24,6 +24,7 @@ from app.schemas.briefing import (
     TodayBriefingResponse,
 )
 from app.services.briefing_pipeline import generate_daily_briefing
+from app.services.llm.errors import LLMQuotaExceededError
 from app.services.market_overview_pipeline import generate_market_overview
 from app.services.market_sessions import (
     SESSION_DEFINITIONS,
@@ -267,7 +268,15 @@ def refresh_stock_briefing(
         return generate_daily_briefing(db, ticker, force=True, briefing_session="additional")
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+    except LLMQuotaExceededError as exc:
+        print(f"종목 {ticker} 브리핑 생성 실패: {exc}")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+            headers={"Retry-After": "60"},
+        ) from exc
     except RuntimeError as exc:
+        print(f"종목 {ticker} 브리핑 생성 실패: {exc}")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="브리핑 생성에 실패했습니다. 잠시 후 다시 시도해주세요.",
@@ -332,7 +341,15 @@ def refresh_single_sector_briefing(
         return generate_sector_briefing(db, sector_id, force=True, briefing_session="additional")
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+    except LLMQuotaExceededError as exc:
+        print(f"섹터 {sector_id} 브리핑 생성 실패: {exc}")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+            headers={"Retry-After": "60"},
+        ) from exc
     except RuntimeError as exc:
+        print(f"섹터 {sector_id} 브리핑 생성 실패: {exc}")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="브리핑 생성에 실패했습니다. 잠시 후 다시 시도해주세요.",

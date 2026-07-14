@@ -13,6 +13,10 @@ from anthropic import Anthropic
 
 from app.schemas.llm import BriefingRender, FactsExtraction, MarketOverviewRender
 from app.services.llm.base import BriefingLLMClient
+from app.services.llm.output_validation import (
+    ONE_LINE_SUMMARY_RETRY_INSTRUCTION,
+    validate_render_output,
+)
 
 FACTS_SYSTEM_PROMPT = """\
 너는 금융 문서에서 '사실'만 추출하는 분석기다. 다음 규칙을 반드시 지켜라.
@@ -92,6 +96,7 @@ class ClaudeBriefingLLMClient(BriefingLLMClient):
     def _parse_with_retry(self, *, system_prompt: str, user_prompt: str, output_format, max_tokens: int):
         """구조화 출력을 요청하고, 실패하면 1회만 재시도한다."""
         last_error: Exception | None = None
+        retry_prompt = user_prompt
         for _ in range(2):  # 최초 시도 + 1회 재시도
             try:
                 response = self._client.messages.parse(
@@ -100,12 +105,14 @@ class ClaudeBriefingLLMClient(BriefingLLMClient):
                     system=[
                         {"type": "text", "text": system_prompt, "cache_control": {"type": "ephemeral"}},
                     ],
-                    messages=[{"role": "user", "content": user_prompt}],
+                    messages=[{"role": "user", "content": retry_prompt}],
                     output_format=output_format,
                 )
-                return response.parsed_output
+                return validate_render_output(response.parsed_output)
             except Exception as exc:  # noqa: BLE001 - API/파싱 실패 시 재시도, 최종 실패는 위로 전파
                 last_error = exc
+                if "one_line_summary" in output_format.model_fields:
+                    retry_prompt = f"{user_prompt}\n\n{ONE_LINE_SUMMARY_RETRY_INSTRUCTION}"
         raise RuntimeError(f"Claude 구조화 출력 생성 실패(재시도 포함): {last_error}") from last_error
 
     def extract_facts(
