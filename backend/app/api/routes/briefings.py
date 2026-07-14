@@ -1,4 +1,5 @@
 from datetime import timedelta
+from math import ceil
 from threading import Lock
 from uuid import uuid4
 
@@ -23,7 +24,6 @@ from app.schemas.briefing import (
     TodayBriefingResponse,
 )
 from app.services.briefing_pipeline import generate_daily_briefing
-from app.services.freshness import is_same_calendar_day
 from app.services.market_overview_pipeline import generate_market_overview
 from app.services.market_sessions import (
     SESSION_DEFINITIONS,
@@ -39,6 +39,30 @@ router = APIRouter(prefix="/briefings", tags=["briefings"])
 
 _overview_refresh_jobs: dict[str, dict[str, str | None]] = {}
 _overview_refresh_jobs_lock = Lock()
+MANUAL_REFRESH_COOLDOWN = timedelta(minutes=30)
+
+
+def _claim_manual_refresh(db: Session, user_id: int) -> None:
+    """한 사용자의 모든 수동 새로고침에 공통 30분 쿨다운을 원자적으로 적용한다."""
+    user = db.scalar(select(User).where(User.id == user_id).with_for_update())
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="사용자를 찾을 수 없습니다.")
+
+    server_now = db.scalar(select(func.now())).replace(tzinfo=None)
+    if user.last_manual_refresh_at is not None:
+        remaining = MANUAL_REFRESH_COOLDOWN - (server_now - user.last_manual_refresh_at)
+        if remaining.total_seconds() > 0:
+            seconds = max(1, ceil(remaining.total_seconds()))
+            minutes = max(1, ceil(seconds / 60))
+            db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=f"새로고침은 30분에 한 번만 가능합니다. 약 {minutes}분 후 다시 시도해주세요.",
+                headers={"Retry-After": str(seconds)},
+            )
+
+    user.last_manual_refresh_at = server_now
+    db.commit()
 
 
 def _run_market_overview_refresh(job_id: str) -> None:
@@ -162,16 +186,10 @@ def today_briefing(current_user: User = Depends(get_current_user), db: Session =
 @router.post("/refresh", response_model=TodayBriefingResponse)
 def refresh_briefing(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """
-    사용자가 원할 때 직접 오늘자 브리핑을 새로고침한다 — REFRESH_INTERVAL_HOURS
-    신선도와 무관하게 강제로 재생성한다. 정기 스케줄과 별개로 LLM 호출이
-    추가로 늘어나는 셈이라, 원래는 유저당 하루 1회로 제한했다(User.last_manual_refresh_at).
-    Gemma2(Ollama) 테스트 기간 동안 임시로 제한을 꺼둔 상태 — 나중에 아래 if문을 복구할 것.
+    사용자가 원할 때 직접 오늘자 브리핑을 새로고침한다.
+    모든 수동 새로고침은 사용자별로 30분에 한 번만 허용한다.
     """
-    # if is_same_calendar_day(db, current_user.last_manual_refresh_at):
-    #     raise HTTPException(
-    #         status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-    #         detail="오늘은 이미 새로고침을 사용했습니다. 내일 다시 시도해주세요.",
-    #     )
+    _claim_manual_refresh(db, current_user.id)
 
     try:
         collect_news_run()
@@ -213,9 +231,6 @@ def refresh_briefing(current_user: User = Depends(get_current_user), db: Session
         print(f"수동 새로고침 - 전체 시황 생성 실패: {e}")
         market_overview = None
 
-    current_user.last_manual_refresh_at = db.scalar(select(func.now())).replace(tzinfo=None)
-    db.commit()
-
     return today_briefing(current_user=current_user, db=db)
 
 
@@ -230,6 +245,7 @@ def refresh_stock_briefing(
     followed_tickers = {item.ticker for item in list_watchlist(db, current_user.id)}
     if ticker not in followed_tickers:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="관심 종목에서 찾을 수 없습니다.")
+    _claim_manual_refresh(db, current_user.id)
 
     # 뉴스 재수집 없이 바로 재생성하면 DB에 이미 있는(오래된) 뉴스만 보게 되어
     # "새로고침해도 최신 이슈가 안 잡히는" 문제가 생긴다 — 이 종목만 가볍게 먼저 수집한다.
@@ -255,9 +271,10 @@ def refresh_stock_briefing(
 def refresh_market_overview(
     background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     """전체 시황 생성을 백그라운드에서 시작하고 즉시 작업 ID를 반환한다."""
-    del current_user  # 인증 자체가 목적이며 작업 결과는 모든 사용자에게 공통이다.
+    _claim_manual_refresh(db, current_user.id)
     with _overview_refresh_jobs_lock:
         running = next(
             (job.copy() for job in _overview_refresh_jobs.values() if job["status"] == "running"),
@@ -298,6 +315,7 @@ def refresh_single_sector_briefing(
     followed_sector_ids = {item.sector_id for item in list_sector_watchlist(db, current_user.id)}
     if sector_id not in followed_sector_ids:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="관심 섹터에서 찾을 수 없습니다.")
+    _claim_manual_refresh(db, current_user.id)
 
     try:
         return generate_sector_briefing(db, sector_id, force=True, briefing_session="additional")

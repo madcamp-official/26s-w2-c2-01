@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { SENT_LABEL } from '../data.js';
 import Icon from './Icon.jsx';
 
@@ -37,7 +37,9 @@ function TodaySessionTabs({ sessions, selected, onSelect, getUpdatedAt }) {
             onClick={() => onSelect(session.key)}
           >
             <span>{session.label}</span>
-            <small>{session.available ? (updatedAt ? `${time} 업데이트` : '업데이트 대기') : `${time} 예정`}</small>
+            <small>{session.available
+              ? (updatedAt ? `${time} 업데이트` : '업데이트 대기')
+              : (session.historical ? '기록 없음' : `${time} 예정`)}</small>
           </button>
         );
       })}
@@ -45,60 +47,134 @@ function TodaySessionTabs({ sessions, selected, onSelect, getUpdatedAt }) {
   );
 }
 
-function HistoryList({ rows, loading, error, emptyLabel }) {
+function BriefingBlock({ row }) {
+  const [label, className] = row.sentiment ? SENT_LABEL[row.sentiment] : [null, null];
+  return (
+    <div className="block">
+      <div className="block-h">
+        <h2 style={{ fontSize: 15 }}>{row.briefing_date}</h2>
+        {label && <span className={`tag ${className}`} style={{ marginLeft: 'auto' }}>{label}</span>}
+      </div>
+      {row.indices && Object.keys(row.indices).length > 0 && (
+        <div className="idxgrid" style={{ marginBottom: 16 }}>
+          {Object.entries(row.indices).map(([name, value]) => (
+            <div key={name} className="idxcard"><div className="l">{name}</div><div className="v">{String(value)}</div></div>
+          ))}
+        </div>
+      )}
+      {row.summary && <p style={{ fontSize: 13.5, color: 'var(--t2)', lineHeight: 1.7 }}>{row.summary}</p>}
+      <div className="factgrid">
+        {row.positive_factors?.length > 0 && (
+          <div className="factbox pos"><div className="ft">긍정 요인</div>{row.positive_factors.map((x, i) => <div key={i}>{typeof x === 'string' ? x : JSON.stringify(x)}</div>)}</div>
+        )}
+        {row.negative_factors?.length > 0 && (
+          <div className="factbox neg"><div className="ft">부정 요인</div>{row.negative_factors.map((x, i) => <div key={i}>{typeof x === 'string' ? x : JSON.stringify(x)}</div>)}</div>
+        )}
+        {row.watch_issues?.length > 0 && (
+          <div className="factbox neu"><div className="ft">확인할 것</div>{row.watch_issues.map((x, i) => <div key={i}>{typeof x === 'string' ? x : JSON.stringify(x)}</div>)}</div>
+        )}
+      </div>
+      {row.reasons?.length > 0 && (
+        <div className="citelist">
+          {row.reasons.map((reason, i) => (
+            <div key={i} className="citerow">
+              <Icon size={13}>
+                <path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1" />
+                <path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1" />
+              </Icon>
+              {reason.source_url ? (
+                <a href={reason.source_url} target="_blank" rel="noreferrer">{reason.factor ?? reason.explain ?? reason.source_url}</a>
+              ) : (
+                <span>{reason.factor ?? reason.explain ?? JSON.stringify(reason)}</span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function historySessionsFor(dateValue, dateRows) {
+  const briefingDate = new Date(`${dateValue}T00:00:00Z`);
+  const marketDate = new Date(briefingDate);
+  marketDate.setUTCDate(marketDate.getUTCDate() - 1);
+  const marketDay = marketDate.getUTCDate();
+  const todayDay = briefingDate.getUTCDate();
+  const definitions = [
+    ['market_open', `${marketDay}일 장시작`],
+    ['intraday', `${marketDay}일 장중`],
+    ['market_close', `${marketDay}일 장마감`],
+    ['after_hours', `${marketDay}~${todayDay}일 시간외`],
+  ];
+  const sessions = definitions.map(([key, label]) => {
+    const row = dateRows.find((item) => item.briefing_session === key);
+    return { key, label, available: Boolean(row), historical: true, scheduled_at: row?.generated_at };
+  });
+  const additional = dateRows.find((item) => item.briefing_session === 'additional');
+  if (additional) {
+    sessions.push({
+      key: 'additional', label: '추가', available: true, historical: true,
+      scheduled_at: additional.generated_at,
+    });
+  }
+  return sessions;
+}
+
+function HistoryList({ rows = [], loading, error, emptyLabel }) {
+  const dates = useMemo(
+    () => [...new Set(rows.map((row) => row.briefing_date))].sort().reverse(),
+    [rows]
+  );
+  const [selectedDate, setSelectedDate] = useState(null);
+  const [selectedHistorySession, setSelectedHistorySession] = useState(null);
+
+  useEffect(() => {
+    if (!dates.includes(selectedDate)) setSelectedDate(dates[0] ?? null);
+  }, [dates, selectedDate]);
+
+  const dateRows = useMemo(
+    () => rows.filter((row) => row.briefing_date === selectedDate),
+    [rows, selectedDate]
+  );
+  const sessions = useMemo(
+    () => selectedDate ? historySessionsFor(selectedDate, dateRows) : [],
+    [selectedDate, dateRows]
+  );
+
+  useEffect(() => {
+    const available = sessions.filter((session) => session.available);
+    if (!available.some((session) => session.key === selectedHistorySession)) {
+      setSelectedHistorySession(available[0]?.key ?? null);
+    }
+  }, [selectedDate, sessions, selectedHistorySession]);
+
   if (loading) return <div className="strip">불러오는 중…</div>;
   if (error) return <div className="strip" style={{ background: 'var(--neg-bg)', color: 'var(--neg)' }}>{error}</div>;
   if (!rows.length) return <div className="strip">{emptyLabel}</div>;
 
+  const selectedRow = dateRows.find((row) => row.briefing_session === selectedHistorySession);
   return (
-    <div className="rows">
-      {rows.map((row) => {
-        const [label, className] = row.sentiment ? SENT_LABEL[row.sentiment] : [null, null];
-        return (
-          <div className="block" key={`${row.briefing_date}-${row.briefing_session}-${row.ticker ?? row.sector_id ?? 'overview'}`}>
-            <div className="block-h">
-              <h2 style={{ fontSize: 15 }}>{row.briefing_date}</h2>
-              {label && <span className={`tag ${className}`} style={{ marginLeft: 'auto' }}>{label}</span>}
-            </div>
-            {row.indices && Object.keys(row.indices).length > 0 && (
-              <div className="idxgrid" style={{ marginBottom: 16 }}>
-                {Object.entries(row.indices).map(([name, value]) => (
-                  <div key={name} className="idxcard"><div className="l">{name}</div><div className="v">{String(value)}</div></div>
-                ))}
-              </div>
-            )}
-            {row.summary && <p style={{ fontSize: 13.5, color: 'var(--t2)', lineHeight: 1.7 }}>{row.summary}</p>}
-            <div className="factgrid">
-              {row.positive_factors?.length > 0 && (
-                <div className="factbox pos"><div className="ft">긍정 요인</div>{row.positive_factors.map((x, i) => <div key={i}>{typeof x === 'string' ? x : JSON.stringify(x)}</div>)}</div>
-              )}
-              {row.negative_factors?.length > 0 && (
-                <div className="factbox neg"><div className="ft">부정 요인</div>{row.negative_factors.map((x, i) => <div key={i}>{typeof x === 'string' ? x : JSON.stringify(x)}</div>)}</div>
-              )}
-              {row.watch_issues?.length > 0 && (
-                <div className="factbox neu"><div className="ft">확인할 것</div>{row.watch_issues.map((x, i) => <div key={i}>{typeof x === 'string' ? x : JSON.stringify(x)}</div>)}</div>
-              )}
-            </div>
-            {row.reasons?.length > 0 && (
-              <div className="citelist">
-                {row.reasons.map((reason, i) => (
-                  <div key={i} className="citerow">
-                    <Icon size={13}>
-                      <path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1" />
-                      <path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1" />
-                    </Icon>
-                    {reason.source_url ? (
-                      <a href={reason.source_url} target="_blank" rel="noreferrer">{reason.factor ?? reason.explain ?? reason.source_url}</a>
-                    ) : (
-                      <span>{reason.factor ?? reason.explain ?? JSON.stringify(reason)}</span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        );
-      })}
+    <div className="history-archive">
+      <div className="history-date-tabs" aria-label="브리핑 기록 날짜">
+        {dates.map((date) => (
+          <button
+            type="button"
+            key={date}
+            className={selectedDate === date ? 'on' : ''}
+            onClick={() => setSelectedDate(date)}
+          >
+            {date.replaceAll('-', '.')}
+          </button>
+        ))}
+      </div>
+      <TodaySessionTabs
+        sessions={sessions}
+        selected={selectedHistorySession}
+        onSelect={setSelectedHistorySession}
+        getUpdatedAt={(key) => dateRows.find((row) => row.briefing_session === key)?.generated_at}
+      />
+      {selectedRow ? <BriefingBlock row={selectedRow} /> : <div className="strip">해당 세션의 기록이 없습니다.</div>}
     </div>
   );
 }
@@ -162,7 +238,7 @@ export default function BriefingDetailPage({
       ? SENT_LABEL[marketOverview.sentiment]
       : [null, null];
     const previousOverviews = overviewHistory.filter(
-      (row) => row.briefing_date !== marketOverview?.briefing_date
+      (row) => row.briefing_date !== briefingDate
     );
     return (
       <div className="maxw">
@@ -250,7 +326,7 @@ export default function BriefingDetailPage({
     const inWatch = sectorWatch.includes(sectorId);
     const [lbl, cls] = b?.sentiment ? SENT_LABEL[b.sentiment] : [null, null];
     const previousBriefings = sectorHistory.filter(
-      (row) => row.sector_id === sectorId && row.briefing_date !== b?.briefing_date
+      (row) => row.sector_id === sectorId && row.briefing_date !== briefingDate
     );
 
     return (
@@ -334,7 +410,7 @@ export default function BriefingDetailPage({
   const inWatch = watch.includes(t);
   const [lbl, cls] = b?.sentiment ? SENT_LABEL[b.sentiment] : [null, null];
   const previousBriefings = history.filter(
-    (row) => row.ticker === t && row.briefing_date !== b?.briefing_date
+    (row) => row.ticker === t && row.briefing_date !== briefingDate
   );
 
   return (
