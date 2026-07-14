@@ -7,6 +7,7 @@ export default function AuthPage({ onAuthed }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [nickname, setNickname] = useState('');
+  const [agreed, setAgreed] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -41,7 +42,7 @@ export default function AuthPage({ onAuthed }) {
 
         <div className="ptabs" style={{ marginBottom: 18 }}>
           <button className={mode === 'login' ? 'on' : ''} onClick={() => { setMode('login'); setError(''); }}>로그인</button>
-          <button className={mode === 'register' ? 'on' : ''} onClick={() => { setMode('register'); setError(''); }}>회원가입</button>
+          <button className={mode === 'register' ? 'on' : ''} onClick={() => { setMode('register'); setError(''); setAgreed(false); }}>회원가입</button>
         </div>
 
         <form onSubmit={handleSubmit}>
@@ -60,11 +61,29 @@ export default function AuthPage({ onAuthed }) {
             <input className="field" style={{ maxWidth: 'none' }} type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={4} />
           </div>
 
+          {mode === 'register' && (
+            <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, margin: '4px 0 14px', fontSize: 12.5, color: 'var(--t2)', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={agreed}
+                onChange={(e) => setAgreed(e.target.checked)}
+                required
+                style={{ marginTop: 2 }}
+              />
+              모든 투자에 대한 책임은 투자자 본인에게 있습니다.
+            </label>
+          )}
+
           {error && (
             <div className="strip" style={{ background: 'var(--neg-bg)', color: 'var(--neg)' }}>{error}</div>
           )}
 
-          <button className="btn primary" type="submit" style={{ width: '100%', justifyContent: 'center' }} disabled={loading}>
+          <button
+            className="btn primary"
+            type="submit"
+            style={{ width: '100%', justifyContent: 'center' }}
+            disabled={loading || (mode === 'register' && !agreed)}
+          >
             {loading ? '처리 중…' : mode === 'login' ? '로그인' : '회원가입'}
           </button>
         </form>
