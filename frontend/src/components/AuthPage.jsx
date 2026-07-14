@@ -62,7 +62,7 @@ export default function AuthPage({ onAuthed }) {
           </div>
 
           {mode === 'register' && (
-            <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, margin: '4px 0 14px', fontSize: 12.5, color: 'var(--t2)', cursor: 'pointer' }}>
+            <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, margin: '4px 0 14px', fontSize: 12.5, color: 'var(--neg)', cursor: 'pointer' }}>
               <input
                 type="checkbox"
                 checked={agreed}
