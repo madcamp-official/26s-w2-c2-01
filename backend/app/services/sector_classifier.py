@@ -63,11 +63,14 @@ INDUSTRY_TO_SECTOR: dict[str, str] = {
     # 산업재
     "Aerospace & Defense": "산업재",
     "Machinery": "산업재",
+    "Airlines": "산업재",
+    "Electrical Equipment": "산업재",
     "Logistics & Transportation": "산업재",
     "Industrial Conglomerates": "산업재",
     # 통신
     "Telecommunication": "통신",
     "Telecommunications": "통신",
+    "Communications": "통신",
     # 부동산
     "Real Estate": "부동산",
     # 소재
@@ -80,8 +83,8 @@ INDUSTRY_TO_SECTOR: dict[str, str] = {
 
 def classify_stock_sector(db: Session, ticker: str) -> int | None:
     """
-    Finnhub에서 업종을 조회해 섹터 id를 반환한다. 실패하거나(Finnhub 오류) 매핑에
-    없는 업종이면 None — 호출부는 이 경우 sector_id를 그냥 비워두면 된다.
+    Finnhub에서 업종을 조회해 섹터 id를 반환한다. API 호출 자체가 실패하면 None,
+    업종이 비었거나 새 라벨이면 '기타'로 분류한다.
     """
     try:
         with FinnhubClient() as client:
@@ -90,22 +93,29 @@ def classify_stock_sector(db: Session, ticker: str) -> int | None:
         return None
 
     industry = profile.get("finnhubIndustry")
-    if not industry:
-        return None
-
-    sector_name = INDUSTRY_TO_SECTOR.get(industry)
-    if not sector_name:
-        return None
+    # Finnhub가 N/A/빈 값을 주는 SPAC·신규 종목도 UI에서 미지정으로 남기지 않는다.
+    sector_name = INDUSTRY_TO_SECTOR.get(industry, "기타")
 
     sector = db.scalar(select(Sector).where(Sector.name_ko == sector_name))
     return sector.id if sector else None
 
 
-def classify_and_save(db: Session, stock: Stock) -> None:
+def classify_and_save(db: Session, stock: Stock, *, commit: bool = True) -> bool:
     """stock.sector_id가 비어 있으면 분류를 시도해 채운다. 실패해도 조용히 넘어간다."""
     if stock.sector_id is not None:
-        return
+        return False
     sector_id = classify_stock_sector(db, stock.ticker)
     if sector_id is not None:
         stock.sector_id = sector_id
+        if commit:
+            db.commit()
+        return True
+    return False
+
+
+def classify_and_save_many(db: Session, stocks: list[Stock]) -> int:
+    """미분류 종목 여러 개를 Finnhub로 채우고 DB commit은 한 번만 수행한다."""
+    changed = sum(classify_and_save(db, stock, commit=False) for stock in stocks)
+    if changed:
         db.commit()
+    return changed

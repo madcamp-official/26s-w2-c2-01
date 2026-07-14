@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # 상대경로("​.env")는 프로세스가 어느 작업 디렉터리에서 기동되든 backend/.env를
@@ -39,6 +40,8 @@ class Settings(BaseSettings):
     # (서머타임 기준 — 09:30~16:00 ET = 22:30~05:00 KST를 정시로 반올림함.
     #  겨울철(EST)엔 미장이 1시간씩 밀리니 그 기간엔 23,3,6,14 정도로 조정 필요.)
     ENABLE_SCHEDULER: bool = True
+    # 관심종목 브리핑 자동 갱신: 미국 장마감 후 종가·마감 뉴스가 안정되는 아침 7시.
+    WATCHLIST_REFRESH_HOUR_KST: int = Field(default=7, ge=0, le=23)
     # Full-universe yfinance scan, independently switchable from news jobs.
     ENABLE_VOLATILITY_SCANNER: bool = True
     REFRESH_HOURS_KST: str = "2,5,14,22"

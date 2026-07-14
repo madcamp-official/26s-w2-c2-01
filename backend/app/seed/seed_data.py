@@ -32,6 +32,7 @@ SECTORS = [
     ("부동산", "Real Estate"),
     ("소재", "Materials"),
     ("유틸리티", "Utilities"),
+    ("기타", "Other"),
 ]
 
 # 더 이상 안 쓰는 옛 섹터 이름 — 참조하는 종목이 없으면 정리 대상.

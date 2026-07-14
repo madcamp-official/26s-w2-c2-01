@@ -96,7 +96,8 @@ function SectorCard({ sector, briefing, missing, onOpenDetail }) {
 
 export default function BriefingPage({
   timeMode, setTimeMode, briefingTab, setBriefingTab,
-  stocks, watch, watchBusy, watchError, stockSearch, setStockSearch, onOpenDetail, onAddStock,
+  stocks, popularStocks, stockSearchResults, stockSearchLoading,
+  watch, watchBusy, watchError, stockSearch, setStockSearch, onOpenDetail, onAddStock,
   briefingByTicker, missingTickers, marketOverview,
   onRefresh, refreshBusy, refreshError,
   history, historyLoading, historyError,
@@ -113,15 +114,11 @@ export default function BriefingPage({
 
   const avail = useMemo(() => {
     const watchSet = new Set(watch);
-    return stocks.filter((s) => !watchSet.has(s.ticker));
-  }, [stocks, watch]);
+    const source = deferredStockSearch.trim() ? stockSearchResults : popularStocks;
+    return source.filter((s) => !watchSet.has(s.ticker));
+  }, [popularStocks, stockSearchResults, watch, deferredStockSearch]);
 
-  const filtered = useMemo(() => {
-    const q = deferredStockSearch.trim().toLowerCase();
-    return q
-      ? avail.filter((s) => s.ticker.toLowerCase().includes(q) || (s.name_ko || '').toLowerCase().includes(q) || s.name_en.toLowerCase().includes(q))
-      : avail;
-  }, [avail, deferredStockSearch]);
+  const filtered = avail;
 
   const watchStocks = useMemo(
     () => watch.map((t) => stocksByTicker[t]).filter(Boolean),
@@ -157,13 +154,21 @@ export default function BriefingPage({
 
       <div className="ptabs">
         <button className={timeMode === 'today' ? 'on' : ''} onClick={() => setTimeMode('today')}>오늘</button>
-        <button className={timeMode === 'history' ? 'on' : ''} onClick={() => setTimeMode('history')}>이전 기록</button>
+        <button
+          className={timeMode === 'history' ? 'on' : ''}
+          onClick={() => { setTimeMode('history'); if (briefingTab === 'search') setBriefingTab('mine'); }}
+        >이전 기록</button>
       </div>
 
       <div className="chips" style={{ marginBottom: 14 }}>
         {[['mine', '관심 종목'], ['sector', '관심 섹터'], ['overview', '전체']].map(([k, l]) => (
           <span key={k} className={`chip ${briefingTab === k ? 'on' : ''}`} onClick={() => setBriefingTab(k)}>{l}</span>
         ))}
+        <span
+          className={`chip ${briefingTab === 'search' ? 'on' : ''}`}
+          style={{ marginLeft: 'auto' }}
+          onClick={() => { setTimeMode('today'); setBriefingTab('search'); }}
+        >검색</span>
       </div>
 
       {timeMode === 'today' && briefingTab === 'overview' && (
@@ -220,7 +225,7 @@ export default function BriefingPage({
         </>
       )}
 
-      {timeMode === 'today' && briefingTab === 'mine' && (
+      {timeMode === 'today' && briefingTab === 'search' && (
         <>
           <div className="searchbox">
             <Icon size={16}><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /></Icon>
@@ -235,8 +240,9 @@ export default function BriefingPage({
           </div>
           {watchError && <div className="strip" style={{ background: 'var(--neg-bg)', color: 'var(--neg)', marginTop: 8 }}>{watchError}</div>}
           <div className="searchresults">
-            {!avail.length && <div className="hint2" style={{ padding: '8px 2px' }}>모든 종목을 이미 관심종목에 추가했습니다.</div>}
-            {avail.length > 0 && !filtered.length && <div className="hint2" style={{ padding: '8px 2px' }}>검색 결과가 없습니다.</div>}
+            {!deferredStockSearch.trim() && <div className="hint2" style={{ padding: '8px 2px' }}>오늘 거래량이 많은 인기 종목 20개입니다.</div>}
+            {stockSearchLoading && <div className="hint2" style={{ padding: '8px 2px' }}>검색 중…</div>}
+            {!stockSearchLoading && deferredStockSearch.trim() && !filtered.length && <div className="hint2" style={{ padding: '8px 2px' }}>검색 결과가 없습니다.</div>}
             {filtered.map((s) => (
               <div key={s.ticker} className="searchrow" onClick={() => !watchBusy && onAddStock(s.ticker)}>
                 <div className="sm"><span className="sym">{s.ticker}</span><span className="sec">{s.name_ko || s.name_en} · {s.sector?.name_ko ?? '섹터 미지정'}</span></div>
@@ -244,9 +250,13 @@ export default function BriefingPage({
               </div>
             ))}
           </div>
+        </>
+      )}
 
+      {timeMode === 'today' && briefingTab === 'mine' && (
+        <>
           {watchStocks.length ? (
-            <div className="rows" style={{ marginTop: 16 }}>
+            <div className="rows">
               {watchStocks.map((s) => (
                 <StockCard
                   key={s.ticker}

@@ -43,6 +43,9 @@ export default function App() {
 
   // ── 서버 데이터 ──
   const [stocks, setStocks] = useState([]);
+  const [popularStocks, setPopularStocks] = useState([]);
+  const [stockSearchResults, setStockSearchResults] = useState([]);
+  const [stockSearchLoading, setStockSearchLoading] = useState(false);
   const [sectors, setSectors] = useState([]);
   const [categories, setCategories] = useState([]);
   const [presets, setPresets] = useState([]);
@@ -68,7 +71,10 @@ export default function App() {
       getTodayBriefing(),
     ])
       .then(([s, sec, c, p, w, sw, b]) => {
-        setStocks(s);
+        const watchStocks = w.map((item) => item.stock).filter(Boolean);
+        const merged = new Map([...s, ...watchStocks].map((stock) => [stock.ticker, stock]));
+        setPopularStocks(s);
+        setStocks([...merged.values()]);
         setSectors(sec);
         setCategories(c);
         setPresets(p);
@@ -138,6 +144,40 @@ export default function App() {
   // ── 하루 1회 수동 새로고침 ──
   const [refreshBusy, setRefreshBusy] = useState(false);
   const [refreshError, setRefreshError] = useState('');
+
+  useEffect(() => {
+    const query = stockSearch.trim();
+    if (!query) {
+      setStockSearchResults([]);
+      setStockSearchLoading(false);
+      return undefined;
+    }
+
+    let cancelled = false;
+    setStockSearchLoading(true);
+    const timer = setTimeout(() => {
+      listStocks(query)
+        .then((results) => {
+          if (cancelled) return;
+          setStockSearchResults(results);
+          setStocks((prev) => {
+            const merged = new Map([...prev, ...results].map((stock) => [stock.ticker, stock]));
+            return [...merged.values()];
+          });
+        })
+        .catch((err) => {
+          if (!cancelled) setWatchError(err instanceof ApiError ? err.detail : '종목 검색에 실패했습니다.');
+        })
+        .finally(() => {
+          if (!cancelled) setStockSearchLoading(false);
+        });
+    }, 300);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [stockSearch]);
 
   // ── 이전 기록(오늘/이전 기록 탭) ──
   const [history, setHistory] = useState([]);
@@ -444,6 +484,9 @@ export default function App() {
                   briefingTab={briefingTab}
                   setBriefingTab={setBriefingTab}
                   stocks={stocks}
+                  popularStocks={popularStocks}
+                  stockSearchResults={stockSearchResults}
+                  stockSearchLoading={stockSearchLoading}
                   watch={watch}
                   watchBusy={watchBusy}
                   watchError={watchError}

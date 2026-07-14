@@ -9,8 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.routes import analysis, auth, briefings, sector_watchlists, stocks, users, watchlists
 from app.core.config import settings
 from app.jobs.bootstrap_stocks import run_startup_stock_import_if_needed
-from app.jobs.scheduler import run_refresh_cycle
-from app.jobs.scan_volatility import run_bootstrap_if_needed as run_volatility_bootstrap
+from app.jobs.scheduler import run_refresh_cycle, run_watchlist_refresh_cycle
 from app.jobs.scan_volatility import run_daily as run_volatility_daily
 from app.jobs.scan_volatility import run_premarket as run_volatility_premarket
 from app.services.volatility_scanner import VolatilityScanner
@@ -40,18 +39,21 @@ async def lifespan(app: FastAPI):
             replace_existing=True,
             max_instances=1,  # 이전 갱신(뉴스수집+Claude 호출로 몇 분 걸릴 수 있음)이 안 끝났으면 겹쳐 돌지 않음
         )
+        scheduler.add_job(
+            run_watchlist_refresh_cycle,
+            trigger=CronTrigger(
+                hour=settings.WATCHLIST_REFRESH_HOUR_KST,
+                minute=0,
+                timezone="Asia/Seoul",
+            ),
+            id="watchlist_daily_refresh",
+            replace_existing=True,
+            max_instances=1,
+            coalesce=True,
+        )
         if settings.ENABLE_VOLATILITY_SCANNER:
-            # 새 DB이거나 종목 universe가 바뀐 경우 API 기동을 막지 않고 최초 캐시를 만든다.
-            # 캐시가 현재 universe와 일치하면 즉시 건너뛰므로 재시작마다 재실행되지 않는다.
-            scheduler.add_job(
-                run_volatility_bootstrap,
-                args=[volatility_scanner],
-                trigger="date",
-                id="volatility_bootstrap",
-                replace_existing=True,
-                max_instances=1,
-            )
             # US/Eastern keeps the jobs aligned when daylight saving changes.
+            # 장 마감 후에는 다음 날 프리마켓 스캔에 쓸 후보만 준비한다.
             scheduler.add_job(
                 run_volatility_daily,
                 args=[volatility_scanner],
@@ -63,6 +65,8 @@ async def lifespan(app: FastAPI):
                 max_instances=1,
                 coalesce=True,
             )
+            # 사용자에게 보이는 '오늘의 변동성' 결과는 본장 09:30 ET의 정확히
+            # 1시간 전인 08:30 ET에만 갱신한다. 서버 재시작 시에는 다시 만들지 않는다.
             scheduler.add_job(
                 run_volatility_premarket,
                 args=[volatility_scanner],

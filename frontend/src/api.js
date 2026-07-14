@@ -74,7 +74,10 @@ export const getMe = () => request('/users/me');
 export const updateMe = (data) => request('/users/me', { method: 'PATCH', body: data });
 
 // ── 종목 ──
-export const listStocks = () => request('/stocks', { auth: false });
+export const listStocks = (search = '') => {
+  const query = search.trim() ? `?search=${encodeURIComponent(search.trim())}&limit=20` : '?limit=20';
+  return request(`/stocks${query}`, { auth: false });
+};
 export const listSectors = () => request('/sectors', { auth: false });
 export const getTodayVolatility = () => request('/stocks/volatility/today', { auth: false });
 

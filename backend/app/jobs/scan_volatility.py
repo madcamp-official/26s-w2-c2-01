@@ -18,6 +18,8 @@ from app.db.session import SessionLocal
 from app.models.stock import Stock
 from app.models.news_article import NewsArticle
 from app.services.polygon_client import PolygonNotConfigured, fetch_daily_history_bulk
+from app.services.popular_stocks import get_popular_tickers
+from app.services.sector_classifier import classify_and_save_many
 from app.services.volatility_cache import (
     DAILY_CANDIDATES_FILE,
     TODAY_RESULTS_FILE,
@@ -34,15 +36,20 @@ from app.services.volatility_scanner import ScannerConfig, VolatilityScanner
 SCANNABLE_EXCHANGES = ["NASDAQ", "NYSE", "NYSE American", "CBOE BZX"]
 
 
-def load_universe() -> list[str]:
+def load_universe(limit: int = 20) -> list[str]:
+    """거래대금 상위 종목 중 우리 DB에 존재하는 종목만 스캔한다."""
+    popular = get_popular_tickers(50)
     db = SessionLocal()
     try:
         stmt = (
-            select(Stock.ticker)
-            .where(Stock.exchange.in_(SCANNABLE_EXCHANGES))
+            select(Stock)
+            .where(Stock.exchange.in_(SCANNABLE_EXCHANGES), Stock.ticker.in_(popular))
             .order_by(Stock.ticker)
         )
-        return list(db.scalars(stmt).all())
+        stocks = list(db.scalars(stmt).all())
+        classify_and_save_many(db, stocks)
+        existing = {stock.ticker for stock in stocks}
+        return [ticker for ticker in popular if ticker in existing][:limit]
     finally:
         db.close()
 
@@ -78,6 +85,10 @@ def run_daily(scanner: VolatilityScanner, universe: list[str] | None = None) -> 
     종목당 요청이 필요 없어 대량 유니버스에서도 Cloudflare 차단 위험이 없다.
     미설정이면 기존 yfinance 청크 다운로드로 폴백한다."""
     tickers = universe if universe is not None else load_universe()
+    if len(tickers) <= 50:
+        candidates = scanner.scan_daily(tickers)
+        print(f"Step 1 complete (yfinance, popular universe): {len(tickers)} scanned, {len(candidates)} candidates")
+        return cache_daily_candidates(candidates, universe_size=len(tickers))
     try:
         frames = fetch_daily_history_bulk(lookback_days=scanner.config.lookback_days + 1)
         ticker_set = set(tickers)
