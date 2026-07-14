@@ -18,6 +18,8 @@ def _clean_text(value: str) -> str:
 
 def _clean_common(render) -> None:
     render.summary = _clean_text(render.summary)
+    if hasattr(render, "one_line_summary"):
+        render.one_line_summary = _clean_text(render.one_line_summary)[:80].strip()
     render.positive_factors = [text for item in render.positive_factors if (text := _clean_text(item))]
     render.negative_factors = [text for item in render.negative_factors if (text := _clean_text(item))]
     render.watch_issues = [text for item in render.watch_issues if (text := _clean_text(item))]

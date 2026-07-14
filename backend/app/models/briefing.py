@@ -23,6 +23,7 @@ class DailyBriefing(Base):
     briefing_session: Mapped[str] = mapped_column(String(20), nullable=False, default="additional")
     sentiment: Mapped[str | None] = mapped_column(String(10), nullable=True)
     summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    one_line_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     positive_factors: Mapped[list] = mapped_column(JSONB, default=list)
     negative_factors: Mapped[list] = mapped_column(JSONB, default=list)
     watch_issues: Mapped[list] = mapped_column(JSONB, default=list)

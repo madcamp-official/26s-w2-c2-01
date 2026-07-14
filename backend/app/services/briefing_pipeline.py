@@ -46,6 +46,7 @@ def _apply_render(briefing: DailyBriefing, render: BriefingRender, model_name: s
     render = sanitize_briefing_render(render)
     briefing.sentiment = render.sentiment
     briefing.summary = render.summary
+    briefing.one_line_summary = render.one_line_summary
     briefing.positive_factors = render.positive_factors
     briefing.negative_factors = render.negative_factors
     briefing.watch_issues = render.watch_issues

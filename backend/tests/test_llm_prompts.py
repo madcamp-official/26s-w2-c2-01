@@ -9,6 +9,7 @@ class LlmPromptTest(TestCase):
         self.assertIn("영어 문장이나 영어 설명을 사용하지 않는다", RENDER_SYSTEM_PROMPT)
         for field in (
             "summary",
+            "one_line_summary",
             "positive_factors",
             "negative_factors",
             "watch_issues",
