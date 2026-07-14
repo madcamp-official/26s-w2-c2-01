@@ -28,7 +28,7 @@ from app.services.llm import get_llm_client
 from app.services.market_sessions import BriefingSession, current_briefing_date, current_session
 
 
-def _facts_from_general_news(articles: list[dict], limit: int = 20) -> FactsExtraction:
+def _facts_from_general_news(articles: list[dict], limit: int = 40) -> FactsExtraction:
     """
     구조화된 Finnhub 일반 뉴스를 LLM 재파싱 없이 facts 스키마로 변환한다.
 
@@ -49,7 +49,10 @@ def _facts_from_general_news(articles: list[dict], limit: int = 20) -> FactsExtr
             continue
 
         claim = headline or summary
-        facts.append(FactItem(claim=claim, evidence=summary or headline, source_url=url))
+        # Forty articles provide broader coverage; bounding each excerpt keeps
+        # render latency and LLM input cost predictable.
+        evidence = (summary or headline)[:800]
+        facts.append(FactItem(claim=claim, evidence=evidence, source_url=url))
         key_issues.append(claim)
         if source and source not in entities:
             entities.append(source)

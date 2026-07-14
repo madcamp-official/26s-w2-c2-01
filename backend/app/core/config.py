@@ -51,9 +51,9 @@ class Settings(BaseSettings):
     # the automatic fallback when the feed is disabled, unavailable, or sparse.
     ENABLE_CNBC_MARKET_RSS: bool = True
     CNBC_MARKET_NEWS_LOOKBACK_HOURS: int = 24
-    CNBC_MARKET_NEWS_PER_FEED: int = 5
-    CNBC_MARKET_NEWS_LIMIT: int = 20
-    CNBC_MARKET_NEWS_MIN_ARTICLES: int = 8
+    CNBC_MARKET_NEWS_PER_FEED: int = 10
+    CNBC_MARKET_NEWS_LIMIT: int = 40
+    CNBC_MARKET_NEWS_MIN_ARTICLES: int = 12
 
     # 브리핑 자동 갱신 스케줄러 (뉴스 재수집 + 브리핑 재생성)
     # 등간격이 아니라 미국 장(나스닥·뉴욕) 스케줄에 맞춘 하루 4번 고정 시각(KST):
