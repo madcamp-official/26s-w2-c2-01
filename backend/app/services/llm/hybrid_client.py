@@ -7,9 +7,9 @@ BriefingLLMClient 전체 인터페이스(extract_facts/render_briefing/
 render_market_overview)를 구현한 객체를 받는다 — factory.py가 실제
 조합(Gemini+Claude, Gemini+Ollama 등)을 결정한다.
 
-facts_client 호출이 실패하면(무료 티어 rate limit, 일시 장애 등) 그 즉시
-render_client의 extract_facts로 폴백한다 — 브리핑 생성 자체가 죽는 것보다
-그 요청만 비용이 원래대로 돌아가는 게 낫다는 판단.
+두 클라이언트 다 전체 인터페이스를 구현해두면, 한쪽이 실패해도(무료 티어
+rate limit, 일시 장애 등) 다른 쪽으로 즉시 폴백할 수 있다 — 파이프라인
+전체가 죽는 것보다 그 요청만 다른 모델 결과로 대체되는 게 낫다는 판단.
 """
 
 from app.schemas.llm import BriefingRender, FactsExtraction, MarketOverviewRender
@@ -48,10 +48,21 @@ class HybridBriefingLLMClient(BriefingLLMClient):
         depth: str,
         language: str,
     ) -> BriefingRender:
-        return self._render.render_briefing(
-            facts=facts, categories=categories, preset_persona=preset_persona,
-            depth=depth, language=language,
-        )
+        try:
+            return self._render.render_briefing(
+                facts=facts, categories=categories, preset_persona=preset_persona,
+                depth=depth, language=language,
+            )
+        except Exception as exc:  # noqa: BLE001 - 2단계 클라이언트 장애 시 1단계 클라이언트로 폴백
+            print(f"2단계(렌더링) 실패, 1단계 클라이언트로 폴백: {exc}")
+            return self._facts.render_briefing(
+                facts=facts, categories=categories, preset_persona=preset_persona,
+                depth=depth, language=language,
+            )
 
     def render_market_overview(self, *, facts: FactsExtraction) -> MarketOverviewRender:
-        return self._render.render_market_overview(facts=facts)
+        try:
+            return self._render.render_market_overview(facts=facts)
+        except Exception as exc:  # noqa: BLE001 - 2단계 클라이언트 장애 시 1단계 클라이언트로 폴백
+            print(f"2단계(전체 시황 렌더링) 실패, 1단계 클라이언트로 폴백: {exc}")
+            return self._facts.render_market_overview(facts=facts)

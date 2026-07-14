@@ -1,32 +1,29 @@
 """
-Gemini API를 이용한 1단계(팩트 추출) 전용 구현.
+Gemini API를 이용한 BriefingLLMClient 완전 구현.
 
-Claude 대비 비용 절감이 목적: extract_facts는 '사실만 중립적으로 뽑는' 기계적인
-단계라 Gemini 무료 티어로도 충분하다고 판단, render_briefing/render_market_overview
-(해석·페르소나 반영 단계)만 Claude에 남기고 이 단계만 대체한다.
-실제 조합은 HybridBriefingLLMClient(factory.py)에서 이 클래스 + ClaudeBriefingLLMClient를
-합성해 만든다 — 이 클래스 자체는 extract_facts만 구현한다.
+원래는 1단계(팩트 추출) 전용이었으나 2단계(해석·렌더링)까지 지원하도록 확장했다.
+1단계는 "사실만 기계적으로 뽑는" 단순 작업이라 로컬 Gemma2(Ollama)로 충분하고,
+2단계(감성 판단·자연스러운 서술)는 더 어려운 추론이라 관리형 API가 유리하다는
+판단으로 factory.py에서 Gemma2(1단계)+Gemini(2단계) 조합에도 이 클래스를 쓴다
+(2026-07-14, 렌더링 속도 문제로 1·2단계 담당 스왑).
+
+무료 티어는 분당 5회 제한이라 항목이 많은 새로고침에서 429가 날 수 있다 —
+호출부(HybridBriefingLLMClient)가 실패 시 반대쪽 클라이언트로 폴백한다.
 """
 
 from google import genai
 from google.genai import types
 
-from app.schemas.llm import FactsExtraction
-
-FACTS_SYSTEM_PROMPT = """\
-너는 금융 문서에서 '사실'만 추출하는 분석기다. 다음 규칙을 반드시 지켜라.
-1. 입력 문서에 명시된 내용만 사용한다. 추정·창작·외부지식 추가 금지.
-2. 모든 항목에 원문 근거(발췌 문장 또는 URL)를 첨부한다.
-3. 수치·날짜·고유명사는 문서에 나온 그대로 옮긴다.
-4. 해석·전망·투자의견은 이 단계에서 만들지 않는다.
-5. 출력은 지정된 JSON 스키마만. 다른 텍스트 금지.
-"""
+from app.schemas.llm import BriefingRender, FactsExtraction, MarketOverviewRender
+from app.services.llm.base import BriefingLLMClient
+from app.services.llm.claude_client import (
+    FACTS_SYSTEM_PROMPT,
+    MARKET_SYSTEM_PROMPT,
+    RENDER_SYSTEM_PROMPT,
+)
 
 
-class GeminiFactsExtractor:
-    """extract_facts만 담당하는 좁은 컴포넌트. BriefingLLMClient 전체를 구현하지 않는다 —
-    render_* 단계는 여전히 Claude가 맡으므로 이 클래스를 단독으로 파이프라인에 꽂지 않는다."""
-
+class GeminiBriefingLLMClient(BriefingLLMClient):
     # 특정 버전(예: gemini-2.5-flash)을 고정하면 구글이 신규 프로젝트에 대해
     # 조용히 단종시킬 때(실측: 2026-07-14, 404 "no longer available to new
     # users") 매번 폴백만 타게 된다 — latest 별칭으로 그 문제를 피한다.
@@ -34,6 +31,27 @@ class GeminiFactsExtractor:
 
     def __init__(self, api_key: str) -> None:
         self._client = genai.Client(api_key=api_key)
+
+    def _generate(self, *, system_prompt: str, user_prompt: str, schema: type):
+        """구조화 출력을 요청하고, 실패하면 1회만 재시도한다 (claude_client.py와 동일한 정책)."""
+        last_error: Exception | None = None
+        for _ in range(2):  # 최초 시도 + 1회 재시도
+            try:
+                response = self._client.models.generate_content(
+                    model=self.model_name,
+                    contents=user_prompt,
+                    config=types.GenerateContentConfig(
+                        system_instruction=system_prompt,
+                        response_mime_type="application/json",
+                        response_schema=schema,
+                    ),
+                )
+                if response.parsed is None:
+                    raise RuntimeError(f"Gemini 응답 파싱 실패: {response.text!r:.500}")
+                return response.parsed
+            except Exception as exc:  # noqa: BLE001 - 실패 시 재시도, 최종 실패는 위로 전파
+                last_error = exc
+        raise RuntimeError(f"Gemini 호출 실패(재시도 포함): {last_error}") from last_error
 
     def extract_facts(
         self,
@@ -47,21 +65,32 @@ class GeminiFactsExtractor:
             f"[관련 종목] {', '.join(tickers) if tickers else '(미지정)'}\n"
             f"[문서 원문]\n{document_text or '(수집된 뉴스가 없습니다)'}"
         )
-        last_error: Exception | None = None
-        for _ in range(2):  # 최초 시도 + 1회 재시도 (claude_client.py와 동일한 정책)
-            try:
-                response = self._client.models.generate_content(
-                    model=self.model_name,
-                    contents=user_prompt,
-                    config=types.GenerateContentConfig(
-                        system_instruction=FACTS_SYSTEM_PROMPT,
-                        response_mime_type="application/json",
-                        response_schema=FactsExtraction,
-                    ),
-                )
-                if response.parsed is None:
-                    raise RuntimeError(f"Gemini 응답 파싱 실패: {response.text!r:.500}")
-                return response.parsed
-            except Exception as exc:  # noqa: BLE001 - 실패 시 재시도, 최종 실패는 위로 전파
-                last_error = exc
-        raise RuntimeError(f"Gemini 팩트 추출 실패(재시도 포함): {last_error}") from last_error
+        return self._generate(
+            system_prompt=FACTS_SYSTEM_PROMPT, user_prompt=user_prompt, schema=FactsExtraction
+        )
+
+    def render_briefing(
+        self,
+        *,
+        facts: FactsExtraction,
+        categories: list[str],
+        preset_persona: str,
+        depth: str,
+        language: str,
+    ) -> BriefingRender:
+        user_prompt = (
+            f"[분석 카테고리 focus] {', '.join(categories) if categories else '(미지정 — 전체 시장 관점)'}\n"
+            f"[분석 성향] {preset_persona or '기본 — 균형 잡힌 시각으로 서술'}\n"
+            f"[심층도] {depth}\n"
+            f"[언어] {language}\n\n"
+            f"[사실 데이터 facts JSON]\n{facts.model_dump_json()}"
+        )
+        return self._generate(
+            system_prompt=RENDER_SYSTEM_PROMPT, user_prompt=user_prompt, schema=BriefingRender
+        )
+
+    def render_market_overview(self, *, facts: FactsExtraction) -> MarketOverviewRender:
+        user_prompt = f"[사실 데이터 facts JSON]\n{facts.model_dump_json()}"
+        return self._generate(
+            system_prompt=MARKET_SYSTEM_PROMPT, user_prompt=user_prompt, schema=MarketOverviewRender
+        )
