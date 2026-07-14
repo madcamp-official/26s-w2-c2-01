@@ -66,6 +66,12 @@ class StubBriefingLLMClient(BriefingLLMClient):
     def render_market_overview(self, *, facts: FactsExtraction) -> MarketOverviewRender:
         return MarketOverviewRender(
             summary="[스텁 시황] 실제 LLM 호출 없이 생성된 더미 전체 시황 요약입니다.",
-            indices={},
-            sector_moves={},
+            sentiment="neutral",
+            positive_factors=[],
+            negative_factors=[],
+            watch_issues=["LLM API 연동 후 실제 시황 브리핑으로 교체 예정"],
+            reasons=[],
+            today_actions=["실제 시장 뉴스 연결 상태 확인"],
+            indices=[],
+            sector_moves=[],
         )

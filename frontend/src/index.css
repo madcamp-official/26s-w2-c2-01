@@ -67,6 +67,9 @@ svg{display:block}
 .btn:hover{border-color:var(--accent-line)}
 .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600;box-shadow:var(--shadow-sel)}
 .btn.primary:hover{background:var(--accent-2)}
+.briefing-refresh-icon{display:inline-flex;transform-origin:center}
+.briefing-refresh-icon.spinning{animation:briefing-refresh-spin .75s linear infinite}
+@keyframes briefing-refresh-spin{to{transform:rotate(360deg)}}
 #view{padding:26px 32px}
 
 .lens-grid{display:grid;grid-template-columns:1fr 340px;gap:24px;align-items:start}

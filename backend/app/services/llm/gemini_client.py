@@ -90,7 +90,11 @@ class GeminiBriefingLLMClient(BriefingLLMClient):
         )
 
     def render_market_overview(self, *, facts: FactsExtraction) -> MarketOverviewRender:
-        user_prompt = f"[사실 데이터 facts JSON]\n{facts.model_dump_json()}"
+        user_prompt = (
+            "[출력 언어] 한국어\n"
+            "[작성 지시] 모든 요약과 항목 설명을 한국어로 작성하세요.\n\n"
+            f"[사실 데이터 facts JSON]\n{facts.model_dump_json()}"
+        )
         return self._generate(
             system_prompt=MARKET_SYSTEM_PROMPT, user_prompt=user_prompt, schema=MarketOverviewRender
         )

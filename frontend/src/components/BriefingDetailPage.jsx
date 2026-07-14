@@ -94,6 +94,10 @@ export default function BriefingDetailPage({
 
   if (detail.type === 'overview') {
     const indexEntries = marketOverview?.indices ? Object.entries(marketOverview.indices) : [];
+    const sectorMoveEntries = marketOverview?.sector_moves ? Object.entries(marketOverview.sector_moves) : [];
+    const [overviewLabel, overviewClass] = marketOverview?.sentiment
+      ? SENT_LABEL[marketOverview.sentiment]
+      : [null, null];
     const previousOverviews = overviewHistory.filter(
       (row) => row.briefing_date !== marketOverview?.briefing_date
     );
@@ -103,7 +107,10 @@ export default function BriefingDetailPage({
         <DetailTimeTabs timeMode={timeMode} setTimeMode={setTimeMode} />
         {timeMode === 'today' ? (
           <div className="block">
-          <div className="block-h"><h2>전체 시황</h2></div>
+          <div className="block-h">
+            <h2>전체 시황</h2>
+            {overviewLabel && <span className={`tag ${overviewClass}`} style={{ marginLeft: 'auto' }}>{overviewLabel}</span>}
+          </div>
           {marketOverview ? (
             <>
               {indexEntries.length > 0 && (
@@ -113,7 +120,42 @@ export default function BriefingDetailPage({
                   ))}
                 </div>
               )}
+              {sectorMoveEntries.length > 0 && (
+                <div className="idxgrid" style={{ marginBottom: 16 }}>
+                  {sectorMoveEntries.map(([name, value]) => (
+                    <div key={name} className="idxcard"><div className="l">{name}</div><div className="v" style={{ fontSize: 13 }}>{String(value)}</div></div>
+                  ))}
+                </div>
+              )}
               <p style={{ fontSize: 13.5, color: 'var(--t2)', lineHeight: 1.7 }}>{marketOverview.summary}</p>
+              <div className="factgrid">
+                {marketOverview.positive_factors?.length > 0 && (
+                  <div className="factbox pos"><div className="ft">긍정 요인</div>{marketOverview.positive_factors.map((x, i) => <div key={i}>{typeof x === 'string' ? x : JSON.stringify(x)}</div>)}</div>
+                )}
+                {marketOverview.negative_factors?.length > 0 && (
+                  <div className="factbox neg"><div className="ft">부정 요인</div>{marketOverview.negative_factors.map((x, i) => <div key={i}>{typeof x === 'string' ? x : JSON.stringify(x)}</div>)}</div>
+                )}
+                {marketOverview.watch_issues?.length > 0 && (
+                  <div className="factbox neu"><div className="ft">확인할 것</div>{marketOverview.watch_issues.map((x, i) => <div key={i}>{typeof x === 'string' ? x : JSON.stringify(x)}</div>)}</div>
+                )}
+              </div>
+              {marketOverview.reasons?.length > 0 && (
+                <div className="citelist">
+                  {marketOverview.reasons.map((reason, i) => (
+                    <div key={i} className="citerow">
+                      <Icon size={13}>
+                        <path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1" />
+                        <path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1" />
+                      </Icon>
+                      {reason.source_url ? (
+                        <a href={reason.source_url} target="_blank" rel="noreferrer">{reason.factor ?? reason.explain ?? reason.source_url}</a>
+                      ) : (
+                        <span>{reason.factor ?? reason.explain ?? JSON.stringify(reason)}</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </>
           ) : (
             <div className="strip">아직 전체 시황 브리핑이 생성되지 않았습니다. 뉴스 수집·분석 파이프라인이 연결되면 이곳에 표시됩니다.</div>

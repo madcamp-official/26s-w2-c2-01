@@ -60,7 +60,7 @@ export default function LensPage({
   ticker, stock, lens, updateLens, onBack,
   catGroups, catLabel, presets, presetsByCode, rec,
   catSearchOpen, setCatSearchOpen, catSearchQuery, setCatSearchQuery,
-  kind = 'stock', backLabel = '마이페이지로',
+  kind = 'stock', backLabel = '오늘의 브리핑으로',
 }) {
   const preview = buildPreview(lens, catLabel, presetsByCode);
 

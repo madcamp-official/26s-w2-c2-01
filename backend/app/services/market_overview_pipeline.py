@@ -19,24 +19,39 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.models.briefing import MarketOverview
-from app.schemas.llm import MarketOverviewRender
+from app.schemas.llm import FactItem, FactsExtraction, MarketOverviewRender
 from app.services.finnhub_client import FinnhubClient, FinnhubError
 from app.services.freshness import is_fresh
 from app.services.llm import get_llm_client
 
 
-def _build_market_document_text(articles: list[dict], limit: int = 20) -> str:
-    """Finnhub 일반 뉴스(dict 목록)를 한 문서로 뭉친다. 상위 limit건만 사용(토큰 비용 통제)."""
-    if not articles:
-        return ""
-    lines = []
-    for a in articles[:limit]:
-        headline = a.get("headline") or ""
-        source = a.get("source") or "출처 미상"
-        summary = a.get("summary") or ""
-        url = a.get("url") or ""
-        lines.append(f"- {headline} ({source})\n  {summary}\n  URL: {url}")
-    return "\n".join(lines)
+def _facts_from_general_news(articles: list[dict], limit: int = 12) -> FactsExtraction:
+    """
+    구조화된 Finnhub 일반 뉴스를 LLM 재파싱 없이 facts 스키마로 변환한다.
+
+    전체 시황 새로고침은 뉴스 20건을 Ollama로 추출한 뒤 Gemini로 렌더링해
+    Cloudflare의 100초 제한을 넘기곤 했다. Finnhub 응답에는 제목·요약·URL이
+    이미 분리돼 있으므로 첫 LLM 단계를 생략해 근거는 보존하고 지연만 줄인다.
+    """
+    facts: list[FactItem] = []
+    key_issues: list[str] = []
+    entities: list[str] = []
+
+    for article in articles[:limit]:
+        headline = (article.get("headline") or "").strip()
+        summary = (article.get("summary") or "").strip()
+        source = (article.get("source") or "").strip()
+        url = (article.get("url") or "").strip() or None
+        if not headline and not summary:
+            continue
+
+        claim = headline or summary
+        facts.append(FactItem(claim=claim, evidence=summary or headline, source_url=url))
+        key_issues.append(claim)
+        if source and source not in entities:
+            entities.append(source)
+
+    return FactsExtraction(entities=entities, key_issues=key_issues, facts=facts, figures=[])
 
 
 def _fetch_general_news() -> list[dict]:
@@ -50,8 +65,14 @@ def _fetch_general_news() -> list[dict]:
 
 def _apply_render(overview: MarketOverview, render: MarketOverviewRender, model_name: str) -> None:
     overview.summary = render.summary
-    overview.indices = render.indices
-    overview.sector_moves = render.sector_moves
+    overview.sentiment = render.sentiment
+    overview.positive_factors = render.positive_factors
+    overview.negative_factors = render.negative_factors
+    overview.watch_issues = render.watch_issues
+    overview.reasons = [r.model_dump() for r in render.reasons]
+    overview.today_actions = render.today_actions
+    overview.indices = {item.name: item.description for item in render.indices}
+    overview.sector_moves = {item.name: item.description for item in render.sector_moves}
     overview.model = model_name
 
 
@@ -65,11 +86,7 @@ def generate_market_overview(db: Session, briefing_date: date | None = None, for
     news = _fetch_general_news()
     llm = get_llm_client()
 
-    facts = llm.extract_facts(
-        source_type="market_news",
-        tickers=[],
-        document_text=_build_market_document_text(news),
-    )
+    facts = _facts_from_general_news(news)
     render = llm.render_market_overview(facts=facts)
 
     if cached:

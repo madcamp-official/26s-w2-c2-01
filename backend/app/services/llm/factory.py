@@ -20,7 +20,8 @@ def get_llm_client() -> BriefingLLMClient:
     2. ANTHROPIC_API_KEY + GEMINI_API_KEY: 하이브리드(팩트 추출=Gemini, 렌더링=Claude).
     3. OLLAMA_BASE_URL만: 1·2단계 둘 다 Ollama/Gemma2.
     4. ANTHROPIC_API_KEY만: Claude 단독.
-    5. 아무 키도 없으면: 스텁 — 앱 전체가 죽지 않고 더미 데이터로 계속 동작한다.
+    5. GEMINI_API_KEY만: Gemini 단독.
+    6. 아무 키도 없으면: 스텁 — 앱 전체가 죽지 않고 더미 데이터로 계속 동작한다.
     """
     if settings.GEMINI_API_KEY and settings.OLLAMA_BASE_URL:
         return HybridBriefingLLMClient(
@@ -38,4 +39,6 @@ def get_llm_client() -> BriefingLLMClient:
         return OllamaBriefingLLMClient(base_url=settings.OLLAMA_BASE_URL, model=settings.OLLAMA_MODEL)
     if settings.ANTHROPIC_API_KEY:
         return ClaudeBriefingLLMClient(api_key=settings.ANTHROPIC_API_KEY)
+    if settings.GEMINI_API_KEY:
+        return GeminiBriefingLLMClient(api_key=settings.GEMINI_API_KEY)
     return StubBriefingLLMClient()

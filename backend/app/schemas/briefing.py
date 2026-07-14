@@ -26,10 +26,23 @@ class MarketOverviewRead(BaseModel):
 
     id: int
     briefing_date: date
+    sentiment: Literal["positive", "neutral", "negative"] | None
     summary: str | None
+    positive_factors: list
+    negative_factors: list
+    watch_issues: list
+    reasons: list
+    today_actions: list
     indices: dict
     sector_moves: dict
+    model: str | None
     generated_at: datetime
+
+
+class MarketOverviewRefreshJobRead(BaseModel):
+    job_id: str
+    status: Literal["running", "completed", "failed"]
+    error: str | None = None
 
 
 class SectorBriefingRead(BaseModel):

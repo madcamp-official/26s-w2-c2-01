@@ -11,11 +11,14 @@ function RowActions({ label, refreshing, removing, onRefresh, onRemove }) {
         className="btn"
         style={{ padding: '6px 9px', fontSize: 12 }}
         disabled={busy}
+        aria-busy={refreshing}
         title={`${label} 브리핑 새로고침`}
         aria-label={`${label} 브리핑 새로고침`}
         onClick={onRefresh}
       >
-        <Icon size={14}><path d="M4 4v6h6M20 20v-6h-6" /><path d="M20 8a8 8 0 0 0-14.9-3M4 16a8 8 0 0 0 14.9 3" /></Icon>
+        <span className={refreshing ? 'briefing-refresh-icon spinning' : 'briefing-refresh-icon'}>
+          <Icon size={14}><path d="M4 4v6h6M20 20v-6h-6" /><path d="M20 8a8 8 0 0 0-14.9-3M4 16a8 8 0 0 0 14.9 3" /></Icon>
+        </span>
       </button>
       {onRemove && (
         <button
@@ -104,6 +107,14 @@ export default function BriefingPage({
 }) {
   const deferredStockSearch = useDeferredValue(stockSearch);
   const deferredSectorSearch = useDeferredValue(sectorSearch);
+  const [overviewLabel, overviewClass] = marketOverview?.sentiment
+    ? SENT_LABEL[marketOverview.sentiment]
+    : [null, null];
+  const overviewHasIssueFields = Array.isArray(marketOverview?.positive_factors)
+    && Array.isArray(marketOverview?.negative_factors);
+  const overviewIssueCount = overviewHasIssueFields
+    ? marketOverview.positive_factors.length + marketOverview.negative_factors.length
+    : null;
 
   const stocksByTicker = useMemo(() => Object.fromEntries(stocks.map((s) => [s.ticker, s])), [stocks]);
   const sectorsById = useMemo(() => Object.fromEntries(sectors.map((s) => [s.id, s])), [sectors]);
@@ -233,10 +244,14 @@ export default function BriefingPage({
         <div className="rows">
           <div className="srow" style={{ cursor: 'pointer' }} onClick={() => onOpenDetail({ type: 'overview' })}>
             <div className="m">
-              <div className="tk"><span className="sym">전체 시황</span></div>
+              <div className="tk">
+                <span className="sym">전체 시황</span>
+                {overviewLabel && <span className={`tag ${overviewClass}`}>{overviewLabel}</span>}
+              </div>
               <div className="desc">{marketOverview?.summary ?? '아직 전체 시황 브리핑이 생성되지 않았습니다.'}</div>
             </div>
             <div className="chg">
+              {overviewIssueCount > 0 && <div className="cnt">이슈 {overviewIssueCount}건</div>}
               <RowActions
                 label="전체 시황"
                 refreshing={refreshingOverview}

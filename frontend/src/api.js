@@ -102,8 +102,45 @@ export const getTodayBriefing = () => request('/briefings/today');
 export const refreshBriefing = () => request('/briefings/refresh', { method: 'POST' });
 export const refreshStockBriefing = (ticker) =>
   request(`/briefings/refresh/stocks/${encodeURIComponent(ticker)}`, { method: 'POST' });
-export const refreshMarketOverview = () =>
-  request('/briefings/refresh/overview', { method: 'POST' });
+export async function refreshMarketOverview() {
+  const before = await getTodayBriefing();
+  const previousGeneratedAt = before.market_overview?.generated_at ?? null;
+  let job;
+
+  try {
+    job = await request('/briefings/refresh/overview', { method: 'POST' });
+  } catch (error) {
+    // 구버전 VM은 생성 요청을 동기로 처리해 Cloudflare 100초 제한(524)에 걸린다.
+    // 원본 작업은 서버에서 계속될 수 있으므로 실패로 끝내지 않고 DB 갱신을 기다린다.
+    if (!(error instanceof ApiError) || error.status !== 524) throw error;
+
+    for (let attempt = 0; attempt < 120; attempt += 1) {
+      await new Promise((resolve) => window.setTimeout(resolve, 5000));
+      const briefing = await getTodayBriefing();
+      const overview = briefing.market_overview;
+      if (overview && overview.generated_at !== previousGeneratedAt) return overview;
+    }
+
+    throw new ApiError(504, '전체 시황 생성 시간이 너무 오래 걸립니다. 잠시 후 다시 시도해 주세요.');
+  }
+
+  // 배포 전 API가 짧은 시간 안에 기존 MarketOverview을 직접 반환하는 경우도 허용한다.
+  if (!job?.job_id) return job;
+
+  for (let attempt = 0; attempt < 300; attempt += 1) {
+    await new Promise((resolve) => window.setTimeout(resolve, 2000));
+    const state = await request(`/briefings/refresh/overview/status/${encodeURIComponent(job.job_id)}`);
+    if (state.status === 'completed') {
+      const briefing = await getTodayBriefing();
+      return briefing.market_overview;
+    }
+    if (state.status === 'failed') {
+      throw new ApiError(500, state.error || '전체 시황 생성에 실패했습니다.');
+    }
+  }
+
+  throw new ApiError(504, '전체 시황 생성 시간이 너무 오래 걸립니다. 잠시 후 다시 시도해 주세요.');
+}
 export const refreshSectorBriefing = (sectorId) =>
   request(`/briefings/refresh/sectors/${sectorId}`, { method: 'POST' });
 export const getBriefingHistory = () => request('/briefings/history');

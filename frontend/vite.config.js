@@ -8,7 +8,14 @@ export default defineConfig({
   server: {
     allowedHosts: [
       'trend-chaser.madcamp-kaist.org'
-    ]
+    ],
+    proxy: {
+      '/api': {
+        target: 'https://api.trend-chaser.madcamp-kaist.org',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, ''),
+      },
+    },
   }
 })
 

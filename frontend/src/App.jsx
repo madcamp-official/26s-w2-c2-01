@@ -528,7 +528,7 @@ export default function App() {
       case 'mypage':
         return { crumb: '홈 / 마이페이지', title: '마이페이지' };
       case 'lens':
-        return { crumb: '마이페이지 / 분석 렌즈', title: lensTicker ? `${lensTicker} 분석 렌즈` : '분석 렌즈' };
+        return { crumb: '오늘의 브리핑 / 분석 렌즈', title: lensTicker ? `${lensTicker} 분석 렌즈` : '분석 렌즈' };
       case 'sector-lens':
         return {
           crumb: '오늘의 브리핑 / 분석 렌즈',
@@ -539,7 +539,7 @@ export default function App() {
     }
   }
   const navActiveMap = {
-    briefing: 'briefing', 'briefing-detail': 'briefing', volatility: 'volatility', mypage: 'mypage', lens: 'mypage', 'sector-lens': 'briefing',
+    briefing: 'briefing', 'briefing-detail': 'briefing', volatility: 'volatility', mypage: 'mypage', lens: 'briefing', 'sector-lens': 'briefing',
   };
 
   if (!authChecked) return null;
@@ -686,7 +686,7 @@ export default function App() {
                     stock={lensStock}
                     lens={getLens(lensTicker)}
                     updateLens={(fn) => updateLensFor(lensTicker, fn)}
-                    onBack={() => setView('mypage')}
+                    onBack={() => setView('briefing')}
                     catGroups={catGroups}
                     catLabel={catLabel}
                     presets={presets}
@@ -700,7 +700,7 @@ export default function App() {
                 ) : (
                   <div className="maxw">
                     종목을 먼저 선택하세요.{' '}
-                    <span style={{ color: 'var(--accent)', cursor: 'pointer' }} onClick={() => setView('mypage')}>마이페이지로 →</span>
+                    <span style={{ color: 'var(--accent)', cursor: 'pointer' }} onClick={() => setView('briefing')}>오늘의 브리핑으로 →</span>
                   </div>
                 )
               )}

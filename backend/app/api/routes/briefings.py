@@ -1,6 +1,8 @@
 from datetime import date, timedelta
+from threading import Lock
+from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -9,11 +11,12 @@ from app.batch.collect_news import FinnhubNotConfigured, collect_for_ticker
 from app.batch.collect_news import run as collect_news_run
 from app.crud.sector_watchlist import list_sector_watchlist
 from app.crud.watchlist import list_watchlist
-from app.db.session import get_db
+from app.db.session import SessionLocal, get_db
 from app.models.briefing import DailyBriefing, MarketOverview, SectorBriefing
 from app.models.user import User
 from app.schemas.briefing import (
     DailyBriefingRead,
+    MarketOverviewRefreshJobRead,
     MarketOverviewRead,
     SectorBriefingRead,
     TodayBriefingResponse,
@@ -24,6 +27,34 @@ from app.services.market_overview_pipeline import generate_market_overview
 from app.services.sector_briefing_pipeline import generate_sector_briefing
 
 router = APIRouter(prefix="/briefings", tags=["briefings"])
+
+_overview_refresh_jobs: dict[str, dict[str, str | None]] = {}
+_overview_refresh_jobs_lock = Lock()
+
+
+def _run_market_overview_refresh(job_id: str) -> None:
+    """HTTP 응답과 분리된 스레드에서 전체 시황을 생성해 Cloudflare 524를 피한다."""
+    db = SessionLocal()
+    try:
+        generate_market_overview(db, briefing_date=date.today(), force=True)
+    except Exception as exc:  # noqa: BLE001 - 작업 상태로 전달하고 API 프로세스는 유지
+        db.rollback()
+        print(f"전체 시황 백그라운드 새로고침 실패: {exc}")
+        with _overview_refresh_jobs_lock:
+            _overview_refresh_jobs[job_id] = {
+                "job_id": job_id,
+                "status": "failed",
+                "error": str(exc),
+            }
+    else:
+        with _overview_refresh_jobs_lock:
+            _overview_refresh_jobs[job_id] = {
+                "job_id": job_id,
+                "status": "completed",
+                "error": None,
+            }
+    finally:
+        db.close()
 
 
 @router.get("/today", response_model=TodayBriefingResponse)
@@ -176,16 +207,45 @@ def refresh_stock_briefing(
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
 
 
-@router.post("/refresh/overview", response_model=MarketOverviewRead)
+@router.post(
+    "/refresh/overview",
+    response_model=MarketOverviewRefreshJobRead,
+    status_code=status.HTTP_202_ACCEPTED,
+)
 def refresh_market_overview(
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
 ):
-    """전체 종목·섹터 브리핑은 건드리지 않고 오늘의 전체 시황만 강제 재생성한다."""
-    try:
-        return generate_market_overview(db, briefing_date=date.today(), force=True)
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+    """전체 시황 생성을 백그라운드에서 시작하고 즉시 작업 ID를 반환한다."""
+    del current_user  # 인증 자체가 목적이며 작업 결과는 모든 사용자에게 공통이다.
+    with _overview_refresh_jobs_lock:
+        running = next(
+            (job.copy() for job in _overview_refresh_jobs.values() if job["status"] == "running"),
+            None,
+        )
+        if running:
+            return running
+
+        job_id = str(uuid4())
+        job = {"job_id": job_id, "status": "running", "error": None}
+        _overview_refresh_jobs[job_id] = job
+
+    background_tasks.add_task(_run_market_overview_refresh, job_id)
+    return job
+
+
+@router.get("/refresh/overview/status/{job_id}", response_model=MarketOverviewRefreshJobRead)
+def market_overview_refresh_status(
+    job_id: str,
+    current_user: User = Depends(get_current_user),
+):
+    """프론트엔드가 전체 시황 생성 완료 여부를 짧은 요청으로 확인한다."""
+    del current_user
+    with _overview_refresh_jobs_lock:
+        job = _overview_refresh_jobs.get(job_id)
+        if not job:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="새로고침 작업을 찾을 수 없습니다.")
+        return job.copy()
 
 
 @router.post("/refresh/sectors/{sector_id}", response_model=SectorBriefingRead)

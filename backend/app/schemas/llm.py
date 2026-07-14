@@ -38,6 +38,13 @@ class ReasonItem(BaseModel):
     source_url: str | None = None
 
 
+class MarketMoveItem(BaseModel):
+    """Gemini 구조화 출력과 호환되는 지수·섹터 동향 항목."""
+
+    name: str
+    description: str
+
+
 class BriefingRender(BaseModel):
     """2단계 · 성향 렌더링 결과. daily_briefings 테이블에 그대로 저장된다."""
 
@@ -61,6 +68,14 @@ class MarketOverviewRender(BaseModel):
     """
 
     summary: str
-    indices: dict[str, str] = {}       # 예: {"나스닥": "AI 반도체 강세에 상승 마감 언급"}
-    sector_moves: dict[str, str] = {}  # 예: {"에너지": "중동 정세로 유가 급등, 강세 언급"}
+    sentiment: Literal["positive", "neutral", "negative"]
+    positive_factors: list[str] = []
+    negative_factors: list[str] = []
+    watch_issues: list[str] = []
+    reasons: list[ReasonItem] = []
+    today_actions: list[str] = []
+    # Gemini Developer API의 response_schema는 자유형 dict(additionalProperties)를
+    # 지원하지 않으므로 고정 스키마 목록으로 받고, 저장 시 dict로 변환한다.
+    indices: list[MarketMoveItem] = []
+    sector_moves: list[MarketMoveItem] = []
     disclaimer: str = "본 브리핑은 정보 제공 목적이며 투자 권유가 아닙니다."

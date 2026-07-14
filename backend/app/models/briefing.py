@@ -64,10 +64,19 @@ class SectorBriefing(Base):
 
 class MarketOverview(Base):
     __tablename__ = "market_overviews"
+    __table_args__ = (
+        CheckConstraint("sentiment IN ('positive','neutral','negative')", name="ck_market_overviews_sentiment"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     briefing_date: Mapped[date] = mapped_column(Date, unique=True, nullable=False)
+    sentiment: Mapped[str | None] = mapped_column(String(10), nullable=True)
     summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    positive_factors: Mapped[list] = mapped_column(JSONB, default=list)
+    negative_factors: Mapped[list] = mapped_column(JSONB, default=list)
+    watch_issues: Mapped[list] = mapped_column(JSONB, default=list)
+    reasons: Mapped[list] = mapped_column(JSONB, default=list)
+    today_actions: Mapped[list] = mapped_column(JSONB, default=list)
     indices: Mapped[dict] = mapped_column(JSONB, default=dict)
     sector_moves: Mapped[dict] = mapped_column(JSONB, default=dict)
     model: Mapped[str | None] = mapped_column(String(50), nullable=True)
