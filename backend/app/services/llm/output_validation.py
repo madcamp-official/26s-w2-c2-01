@@ -23,25 +23,19 @@ _LEAKED_FIELD_NAME = re.compile(r"\bsource_url\b")
 # 뒤에 URL이 그대로 붙어나오는 경우.
 _URL_PATTERN = re.compile(r"https?://")
 
-ONE_LINE_SUMMARY_RETRY_INSTRUCTION = """
-[한 줄 요약 재작성]
-직전 응답의 one_line_summary가 검증에 실패했습니다. 다른 필드의 형식은 유지하면서
-one_line_summary를 줄바꿈 없는 완결된 한국어 한 문장으로 다시 작성하세요.
-공백과 마지막 문장부호를 포함해 반드시 30자 이상 40자 이하이어야 하며,
-마침표·느낌표·물음표 중 하나로 끝내세요. 중간에서 자르거나 말줄임표를 쓰지 마세요.
-""".strip()
+_ONE_LINE_SUMMARY_MAX_LENGTH = 20
+
+# 길이 제약을 어기면 재시도시키던 방식(30~40자 강제)이 Gemini/Ollama 둘 다에서
+# 자주 실패해 섹터 새로고침이 503으로 떨어지는 원인이었다(2026-07-14). 검증
+# 실패로 재시도하는 대신, 넘치는 부분은 잘라서 "..."로 표시하도록 정규화만
+# 한다 — 절대 예외를 던지지 않으므로 이 필드 때문에 생성이 실패하는 일이 없다.
 
 
 def validate_one_line_summary(value: str) -> str:
-    """Validate business rules after LLM parsing, outside provider JSON Schema."""
-    if "\n" in value or "\r" in value:
-        raise ValueError("one_line_summary must not contain line breaks")
+    """Normalize the one-line summary — never raises; truncates overly long output."""
     normalized = re.sub(r"\s+", " ", value).strip()
-    length = len(normalized)
-    if not 30 <= length <= 40:
-        raise ValueError(f"one_line_summary must be 30-40 characters, got {length}")
-    if not normalized.endswith((".", "!", "?")):
-        raise ValueError("one_line_summary must end with sentence punctuation")
+    if len(normalized) > _ONE_LINE_SUMMARY_MAX_LENGTH:
+        normalized = normalized[:_ONE_LINE_SUMMARY_MAX_LENGTH].rstrip() + "..."
     return normalized
 
 

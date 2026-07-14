@@ -22,11 +22,7 @@ from app.services.llm.claude_client import (
     RENDER_SYSTEM_PROMPT,
 )
 from app.services.llm.errors import LLMQuotaExceededError
-from app.services.llm.output_validation import (
-    ONE_LINE_SUMMARY_RETRY_INSTRUCTION,
-    find_malformed_strings,
-    validate_render_output,
-)
+from app.services.llm.output_validation import find_malformed_strings, validate_render_output
 
 
 class GeminiBriefingLLMClient(BriefingLLMClient):
@@ -66,8 +62,6 @@ class GeminiBriefingLLMClient(BriefingLLMClient):
                 ):
                     raise LLMQuotaExceededError() from exc
                 last_error = exc
-                if "one_line_summary" in schema.model_fields:
-                    retry_prompt = f"{user_prompt}\n\n{ONE_LINE_SUMMARY_RETRY_INSTRUCTION}"
         raise RuntimeError(f"Gemini 호출 실패(재시도 포함): {last_error}") from last_error
 
     def extract_facts(
