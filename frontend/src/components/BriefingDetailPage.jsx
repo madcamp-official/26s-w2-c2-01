@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { SENT_LABEL } from '../data.js';
+import { SECTOR_ETFS, SENT_LABEL } from '../data.js';
 import Icon from './Icon.jsx';
 
 function DetailTimeTabs({ timeMode, setTimeMode }) {
@@ -324,6 +324,7 @@ export default function BriefingDetailPage({
     const b = sectorRows.find((row) => row.briefing_session === selectedSession)
       ?? (selectedSession === latestAvailableSession ? sectorBriefingBySectorId[sectorId] : null);
     const inWatch = sectorWatch.includes(sectorId);
+    const representativeEtfs = SECTOR_ETFS[sector.name_en] ?? [];
     const [lbl, cls] = b?.sentiment ? SENT_LABEL[b.sentiment] : [null, null];
     const previousBriefings = sectorHistory.filter(
       (row) => row.sector_id === sectorId && row.briefing_date !== briefingDate
@@ -340,6 +341,15 @@ export default function BriefingDetailPage({
             <h2>{sector.name_ko} 섹터</h2>
             {lbl && <span className={`tag ${cls}`} style={{ marginLeft: 'auto' }}>{lbl}</span>}
           </div>
+
+          {representativeEtfs.length > 0 && (
+            <div className="sector-etfs" aria-label={`${sector.name_ko} 섹터 대표 ETF`}>
+              <span className="sector-etfs-label">대표 ETF</span>
+              <div className="sector-etfs-list">
+                {representativeEtfs.map((ticker) => <span key={ticker} className="sector-etf">{ticker}</span>)}
+              </div>
+            </div>
+          )}
 
           {b ? (
             <>

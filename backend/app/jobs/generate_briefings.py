@@ -1,10 +1,8 @@
 """
 관심종목 전체의 브리핑을 최신 상태로 유지한다.
 
-기본 실행은 generate_daily_briefing의 캐시를 따르고, 아침 7시 정기 작업은
-force=True로 호출해 그날 관심종목을 정확히 한 번 최신화한다.
-
-APScheduler(app/main.py)가 WATCHLIST_REFRESH_HOUR_KST에 하루 1회 호출한다.
+기본 실행은 generate_daily_briefing의 세션별 캐시를 따른다.
+APScheduler(app/main.py)가 REFRESH_HOURS_KST의 네 세션마다 하루 4회 호출한다.
 
 사용법: python -m app.jobs.generate_briefings
 """

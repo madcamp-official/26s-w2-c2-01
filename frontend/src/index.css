@@ -81,6 +81,12 @@ svg{display:block}
   font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center}
 .block-h h2{font-size:16px;font-weight:600}
 .block-h .hint{font-size:12px;color:var(--t3);margin-left:auto}
+.sector-etfs{display:flex;align-items:center;gap:10px;margin:-4px 0 16px;padding-bottom:14px;
+  border-bottom:1px solid var(--line);flex-wrap:wrap}
+.sector-etfs-label{font-size:11.5px;font-weight:600;color:var(--t3)}
+.sector-etfs-list{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.sector-etf{font-size:11.5px;font-weight:700;letter-spacing:.02em;color:var(--accent);
+  background:var(--accent-bg);border:1px solid var(--accent-line);border-radius:999px;padding:4px 9px}
 
 .group{margin-bottom:16px} .group:last-child{margin-bottom:0}
 .group-t{font-size:11px;font-weight:600;color:var(--t3);letter-spacing:.02em;margin-bottom:8px}

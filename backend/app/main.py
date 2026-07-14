@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.routes import analysis, auth, briefings, sector_watchlists, stocks, users, watchlists
 from app.core.config import settings
 from app.jobs.bootstrap_stocks import run_startup_stock_import_if_needed
-from app.jobs.scheduler import run_refresh_cycle, run_watchlist_refresh_cycle
+from app.jobs.scheduler import run_refresh_cycle
 from app.jobs.scan_volatility import run_daily as run_volatility_daily
 from app.jobs.scan_volatility import run_premarket as run_volatility_premarket
 from app.services.volatility_scanner import VolatilityScanner
@@ -38,18 +38,6 @@ async def lifespan(app: FastAPI):
             id="refresh_cycle",
             replace_existing=True,
             max_instances=1,  # 이전 갱신(뉴스수집+Claude 호출로 몇 분 걸릴 수 있음)이 안 끝났으면 겹쳐 돌지 않음
-        )
-        scheduler.add_job(
-            run_watchlist_refresh_cycle,
-            trigger=CronTrigger(
-                hour=settings.WATCHLIST_REFRESH_HOUR_KST,
-                minute=0,
-                timezone="Asia/Seoul",
-            ),
-            id="watchlist_daily_refresh",
-            replace_existing=True,
-            max_instances=1,
-            coalesce=True,
         )
         if settings.ENABLE_VOLATILITY_SCANNER:
             # US/Eastern keeps the jobs aligned when daylight saving changes.

@@ -38,9 +38,8 @@ services:
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-}
       OLLAMA_MODEL: ${OLLAMA_MODEL:-gemma2:9b}
       # .env는 이미지에서 제외되므로 스케줄러 설정을 명시적으로 전달해야 한다.
-      ENABLE_SCHEDULER: ${ENABLE_SCHEDULER:-False}
+      ENABLE_SCHEDULER: ${ENABLE_SCHEDULER:-True}
       REFRESH_HOURS_KST: ${REFRESH_HOURS_KST:-2,5,14,22}
-      WATCHLIST_REFRESH_HOUR_KST: ${WATCHLIST_REFRESH_HOUR_KST:-7}
     ports:
       - "8000:8000"
     volumes:

@@ -96,8 +96,8 @@ def today_briefing(current_user: User = Depends(get_current_user), db: Session =
     관심 종목별 오늘자 브리핑 + 전체 시황을 조회만 한다.
 
     정기 세션 생성은 스케줄러가, 사용자가 요청한 추가 생성은 refresh API가
-    담당한다. 화면 조회가 브리핑을 암묵적으로 생성하면 ENABLE_SCHEDULER=False
-    상태에서도 현재 시간대 브리핑이 생기므로 이 엔드포인트에서는 생성하지 않는다.
+    담당한다. 화면 조회가 브리핑을 암묵적으로 생성하면 스케줄러 비활성 환경에서도
+    현재 시간대 브리핑이 생기므로 이 엔드포인트에서는 생성하지 않는다.
     """
     today = current_briefing_date()
     active_session = current_session(today)

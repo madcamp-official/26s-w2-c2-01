@@ -29,6 +29,24 @@ export const SENT_LABEL = {
   neutral: ['중립', 'neu'],
 };
 
+// 섹터 상세에서 빠르게 비교할 수 있는 미국 상장 대표 ETF.
+// 백엔드의 sectors.name_en을 키로 사용해 화면 문구가 바뀌어도 매핑을 유지한다.
+export const SECTOR_ETFS = {
+  'Semiconductors & AI': ['SOXX', 'SMH', 'BOTZ'],
+  'Technology & Software': ['XLK', 'VGT', 'IGV'],
+  'Media & Internet': ['XLC', 'VOX', 'FDN'],
+  'Consumer & Retail': ['XLY', 'XLP', 'XRT'],
+  Automobiles: ['CARZ', 'DRIV', 'IDRV'],
+  Financials: ['XLF', 'VFH', 'KRE'],
+  'Health Care': ['XLV', 'VHT', 'XBI'],
+  Energy: ['XLE', 'VDE', 'OIH'],
+  Industrials: ['XLI', 'VIS', 'IYT'],
+  Telecommunications: ['XLC', 'VOX', 'IYZ'],
+  'Real Estate': ['XLRE', 'VNQ', 'IYR'],
+  Materials: ['XLB', 'VAW', 'GDX'],
+  Utilities: ['XLU', 'VPU', 'FUTY'],
+};
+
 // ── 종목별 추천 렌즈 (프론트 전용 휴리스틱 — 백엔드에 대응 엔드포인트 없음) ──
 // cats는 실제 analysis_categories.code, preset은 실제 analysis_presets.code 기준
 export const REC_LENS = {
