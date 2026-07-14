@@ -24,11 +24,22 @@ class FinnhubError(RuntimeError):
 
 
 class FinnhubArticle:
-    def __init__(self, headline: str, url: str, source: str | None, summary: str | None, ts: int | None):
+    def __init__(
+        self,
+        headline: str,
+        url: str,
+        source: str | None,
+        summary: str | None,
+        ts: int | None,
+        related: str | None = None,
+        category: str | None = None,
+    ):
         self.headline = headline
         self.url = url
         self.source = source
         self.summary = summary
+        self.related = related
+        self.category = category
         self.published_at = datetime.fromtimestamp(ts, tz=timezone.utc) if ts else None
 
 
@@ -64,6 +75,8 @@ def fetch_company_news(ticker: str, since: date, until: date, timeout: float = 1
             source=item.get("source"),
             summary=item.get("summary"),
             ts=item.get("datetime"),
+            related=item.get("related"),
+            category=item.get("category"),
         )
         for item in data
         if item.get("headline") and item.get("url")

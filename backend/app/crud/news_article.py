@@ -8,6 +8,12 @@ def url_exists(db: Session, url: str) -> bool:
     return db.scalar(select(NewsArticle.id).where(NewsArticle.url == url)) is not None
 
 
+def existing_urls(db: Session, urls: list[str]) -> set[str]:
+    if not urls:
+        return set()
+    return set(db.scalars(select(NewsArticle.url).where(NewsArticle.url.in_(urls))).all())
+
+
 def create_news_article(
     db: Session,
     *,

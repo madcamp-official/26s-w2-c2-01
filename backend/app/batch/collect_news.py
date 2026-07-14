@@ -23,10 +23,13 @@ for _stream in (sys.stdout, sys.stderr):
         _stream.reconfigure(encoding="utf-8", errors="replace")
 
 from app.core.finnhub_client import FinnhubError, FinnhubNotConfigured, fetch_company_news
-from app.crud.news_article import create_news_article, distinct_watchlist_tickers, url_exists
+from app.core.config import settings
+from app.crud.news_article import create_news_article, distinct_watchlist_tickers, existing_urls
 from app.crud.sector_watchlist import distinct_followed_sector_tickers
 from app.crud.stock import list_stocks
 from app.db.session import SessionLocal
+from app.models.stock import Stock
+from app.services.news_relevance import score_article_relevance, select_relevant_articles
 
 REQUEST_INTERVAL_SEC = 1.1  # Finnhub 무료 티어(분당 호출 제한) 여유를 두기 위한 간격
 
@@ -43,13 +46,37 @@ def target_tickers(db) -> list[str]:
 
 def collect_for_ticker(db, ticker: str, since: date, until: date, limit: int) -> tuple[int, int]:
     """(신규 저장 건수, 중복 스킵 건수) 반환."""
-    articles = fetch_company_news(ticker, since, until)[:limit]
+    articles = fetch_company_news(ticker, since, until)
+    known_urls = existing_urls(db, [article.url for article in articles])
+    new_articles = [article for article in articles if article.url not in known_urls]
+    skipped = len(articles) - len(new_articles)
+
+    if settings.ENABLE_NEWS_RELEVANCE_FILTER:
+        stock = db.get(Stock, ticker)
+        company_names = [stock.name_en, stock.name_ko] if stock else []
+        existing_relevant_count = sum(
+            1
+            for article in articles
+            if article.url in known_urls
+            and score_article_relevance(
+                article, ticker=ticker, company_names=company_names
+            ) >= settings.NEWS_RELEVANCE_MIN_SCORE
+        )
+        articles = select_relevant_articles(
+            new_articles,
+            ticker=ticker,
+            company_names=company_names,
+            limit=limit,
+            min_score=settings.NEWS_RELEVANCE_MIN_SCORE,
+            min_articles=max(
+                0, settings.NEWS_RELEVANCE_MIN_ARTICLES - existing_relevant_count
+            ),
+        )
+    else:
+        articles = new_articles[:limit]
+
     inserted = 0
-    skipped = 0
     for a in articles:
-        if url_exists(db, a.url):
-            skipped += 1
-            continue
         create_news_article(
             db,
             ticker=ticker,

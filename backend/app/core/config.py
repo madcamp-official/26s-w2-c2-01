@@ -39,6 +39,14 @@ class Settings(BaseSettings):
     AUTO_IMPORT_US_STOCKS: bool = True
     AUTO_IMPORT_US_STOCKS_THRESHOLD: int = 100
 
+    # Finnhub company-news는 종목과 간접적으로만 관련된 기사도 많이 반환하므로
+    # 제목·요약·related·출처를 점수화해 브리핑 입력의 노이즈를 줄인다.
+    # 문제가 생기면 False로 바꾸고 프로세스(또는 컨테이너)를 재생성하면 기존 최신순
+    # 수집으로 즉시 복귀한다.
+    ENABLE_NEWS_RELEVANCE_FILTER: bool = True
+    NEWS_RELEVANCE_MIN_SCORE: int = 4
+    NEWS_RELEVANCE_MIN_ARTICLES: int = 3
+
     # 브리핑 자동 갱신 스케줄러 (뉴스 재수집 + 브리핑 재생성)
     # 등간격이 아니라 미국 장(나스닥·뉴욕) 스케줄에 맞춘 하루 4번 고정 시각(KST):
     # 장시작 22시 · 장중 02시 · 장마감 05시 · 휴장 중 14시.

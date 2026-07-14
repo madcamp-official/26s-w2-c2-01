@@ -27,15 +27,13 @@ from app.schemas.llm import BriefingRender
 from app.services.freshness import is_fresh
 from app.services.llm import get_llm_client
 from app.services.market_sessions import BriefingSession, current_briefing_date, current_session
+from app.services.news_document import format_news_article
 
 
 def _build_document_text(articles: list[NewsArticle]) -> str:
     if not articles:
         return ""
-    lines = []
-    for a in articles:
-        lines.append(f"- [{a.ticker}] {a.title} ({a.source or '출처 미상'})\n  {a.summary or ''}\n  URL: {a.url}")
-    return "\n".join(lines)
+    return "\n".join(format_news_article(article, include_ticker=True) for article in articles)
 
 
 def _get_default_preset(db: Session) -> AnalysisPreset | None:
