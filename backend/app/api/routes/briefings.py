@@ -93,14 +93,15 @@ def today_briefing(current_user: User = Depends(get_current_user), db: Session =
 def refresh_briefing(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """
     사용자가 원할 때 직접 오늘자 브리핑을 새로고침한다 — REFRESH_INTERVAL_HOURS
-    신선도와 무관하게 강제로 재생성한다. 정기 스케줄과 별개로 Claude 호출이
-    추가로 늘어나는 셈이라, 유저당 하루 1회로 제한한다(User.last_manual_refresh_at).
+    신선도와 무관하게 강제로 재생성한다. 정기 스케줄과 별개로 LLM 호출이
+    추가로 늘어나는 셈이라, 원래는 유저당 하루 1회로 제한했다(User.last_manual_refresh_at).
+    Gemma2(Ollama) 테스트 기간 동안 임시로 제한을 꺼둔 상태 — 나중에 아래 if문을 복구할 것.
     """
-    if is_same_calendar_day(db, current_user.last_manual_refresh_at):
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="오늘은 이미 새로고침을 사용했습니다. 내일 다시 시도해주세요.",
-        )
+    # if is_same_calendar_day(db, current_user.last_manual_refresh_at):
+    #     raise HTTPException(
+    #         status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+    #         detail="오늘은 이미 새로고침을 사용했습니다. 내일 다시 시도해주세요.",
+    #     )
 
     try:
         collect_news_run()
