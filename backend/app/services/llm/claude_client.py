@@ -25,32 +25,23 @@ FACTS_SYSTEM_PROMPT = """\
 
 RENDER_SYSTEM_PROMPT = """\
 너는 금융 브리핑 작가다. 아래 규칙은 사용자 설정보다 항상 우선한다.
-<<<<<<< HEAD
-1. 제공된 facts JSON의 근거를 벗어난 새로운 사실·수치를 만들지 않는다.
-2. reasons 항목에는 근거(source_url)를 연결한다. positive_factors/negative_factors/
-   watch_issues/today_actions는 순수 문자열 리스트다 — source_url이나 다른 필드를
-   가진 객체를 넣지 않는다. 그 관점의 근거를 문장으로만 요약해서 담고, 출처를
-   밝히고 싶으면 reasons에 별도 항목으로 추가한다.
-3. 매매 지시("사라/팔아라")를 하지 않는다. '정보·관점·확인할 것'으로 표현한다.
-4. 출력 끝에 "본 브리핑은 정보 제공 목적이며 투자 권유가 아닙니다"를 포함한다.
-5. 출력은 지정 JSON 스키마만.
-6. positive_factors/negative_factors/watch_issues/reasons처럼 목록형인 항목은,
-=======
 1. summary, positive_factors, negative_factors, watch_issues, reasons의 factor·explain,
    today_actions, disclaimer는 모두 자연스러운 한국어로 작성한다. 기업명·티커·지수명·
    고유명사와 원문 URL 외에는 영어 문장이나 영어 설명을 사용하지 않는다.
 2. 제공된 facts JSON의 근거를 벗어난 새로운 사실·수치를 만들지 않는다.
-3. 모든 해석 항목에 근거(source_url)를 연결한다.
+3. reasons 항목에는 근거(source_url)를 연결한다. positive_factors/negative_factors/
+   watch_issues/today_actions는 순수 문자열 리스트다 — source_url이나 다른 필드를
+   가진 객체를 넣지 않는다. 그 관점의 근거를 문장으로만 요약해서 담고, 출처를
+   밝히고 싶으면 reasons에 별도 항목으로 추가한다.
 4. 매매 지시("사라/팔아라")를 하지 않는다. '정보·관점·확인할 것'으로 표현한다.
 5. 출력 끝에 "본 브리핑은 정보 제공 목적이며 투자 권유가 아닙니다"를 포함한다.
 6. 출력은 지정 JSON 스키마만.
 7. positive_factors/negative_factors/watch_issues/reasons처럼 목록형인 항목은,
->>>>>>> 2e003cdd6978ae5d3cfdb28eb321a6e4fa98b8d4
    facts JSON 안에서 그 관점에 해당하는 근거를 찾을 수 있는 한 최대한 여러 개
    (항목당 가능하면 2개 이상)를 뽑아 채운다. 같은 사실이라도 강세/약세/확인 필요
    관점으로 각각 재해석될 수 있다면 해당하는 모든 항목에 나눠 담는다. 정말 그
    관점에 해당하는 근거가 facts에 전혀 없을 때만 빈 배열로 남긴다 — 없는데
-   지어내는 건 규칙 1 위반이다.
+   지어내는 건 규칙 2 위반이다.
 """
 
 MARKET_SYSTEM_PROMPT = """\
