@@ -39,7 +39,7 @@ router = APIRouter(prefix="/briefings", tags=["briefings"])
 
 _overview_refresh_jobs: dict[str, dict[str, str | None]] = {}
 _overview_refresh_jobs_lock = Lock()
-MANUAL_REFRESH_COOLDOWN = timedelta(minutes=30)
+MANUAL_REFRESH_COOLDOWN = timedelta(minutes=0)
 
 
 def _claim_manual_refresh(db: Session, user_id: int) -> None:
