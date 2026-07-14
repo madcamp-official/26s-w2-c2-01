@@ -41,8 +41,11 @@ class FinnhubClient:
 
     def _get(self, path: str, params: dict) -> dict | list:
         params = {**params, "token": self.api_key}
-        resp = self._client.get(path, params=params)
-        resp.raise_for_status()
+        try:
+            resp = self._client.get(path, params=params)
+            resp.raise_for_status()
+        except httpx.HTTPError as exc:
+            raise FinnhubError(f"Finnhub 요청 실패: {exc}") from exc
         return resp.json()
 
     def get_quote(self, ticker: str) -> dict:
