@@ -27,7 +27,10 @@ class GeminiFactsExtractor:
     """extract_facts만 담당하는 좁은 컴포넌트. BriefingLLMClient 전체를 구현하지 않는다 —
     render_* 단계는 여전히 Claude가 맡으므로 이 클래스를 단독으로 파이프라인에 꽂지 않는다."""
 
-    model_name = "gemini-2.5-flash"
+    # 특정 버전(예: gemini-2.5-flash)을 고정하면 구글이 신규 프로젝트에 대해
+    # 조용히 단종시킬 때(실측: 2026-07-14, 404 "no longer available to new
+    # users") 매번 폴백만 타게 된다 — latest 별칭으로 그 문제를 피한다.
+    model_name = "gemini-flash-latest"
 
     def __init__(self, api_key: str) -> None:
         self._client = genai.Client(api_key=api_key)
