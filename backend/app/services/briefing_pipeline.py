@@ -73,7 +73,12 @@ def generate_daily_briefing(
             DailyBriefing.briefing_session == briefing_session,
         )
     )
-    if cached and not force and is_fresh(db, cached.generated_at, settings.REFRESH_INTERVAL_HOURS):
+    if (
+        cached
+        and cached.one_line_summary
+        and not force
+        and is_fresh(db, cached.generated_at, settings.REFRESH_INTERVAL_HOURS)
+    ):
         return cached
 
     stock = db.get(Stock, ticker)

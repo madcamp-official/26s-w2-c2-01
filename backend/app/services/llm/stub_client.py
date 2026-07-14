@@ -43,7 +43,7 @@ class StubBriefingLLMClient(BriefingLLMClient):
         tickers = facts.entities or ["종목"]
         ticker_label = ", ".join(tickers)
         return BriefingRender(
-            one_line_summary=f"[스텁 브리핑] {ticker_label}의 핵심 이슈를 확인해 주세요.",
+            one_line_summary="핵심 이슈와 변동 요인을 확인해 주세요.",
             summary=(
                 f"[스텁 브리핑] {ticker_label} 관련 실제 LLM 호출 없이 생성된 더미 요약입니다. "
                 f"성향: {preset_persona[:30] if preset_persona else '기본'}..."

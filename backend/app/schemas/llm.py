@@ -5,7 +5,7 @@ daily_briefings 테이블 컬럼(DB스키마.md 2-7)에 맞춰 정리한 것.
 
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class FactItem(BaseModel):
@@ -49,7 +49,7 @@ class BriefingRender(BaseModel):
     """2단계 · 성향 렌더링 결과. daily_briefings 테이블에 그대로 저장된다."""
 
     summary: str
-    one_line_summary: str
+    one_line_summary: str = Field(min_length=1, max_length=30)
     sentiment: Literal["positive", "neutral", "negative"]
     positive_factors: list[str] = []
     negative_factors: list[str] = []

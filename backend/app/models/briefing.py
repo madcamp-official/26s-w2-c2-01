@@ -12,6 +12,10 @@ class DailyBriefing(Base):
     __tablename__ = "daily_briefings"
     __table_args__ = (
         CheckConstraint("sentiment IN ('positive','neutral','negative')", name="ck_daily_briefings_sentiment"),
+        CheckConstraint(
+            "char_length(one_line_summary) <= 30",
+            name="ck_daily_briefings_one_line_summary_length",
+        ),
         UniqueConstraint("ticker", "briefing_date", "briefing_session", name="uq_daily_briefings_ticker_date_session"),
     )
 
