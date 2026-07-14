@@ -211,6 +211,9 @@ def refresh_briefing(current_user: User = Depends(get_current_user), db: Session
             ))
         except ValueError:
             still_missing.append(ticker)
+        except RuntimeError as exc:  # noqa: BLE001 - LLM 생성 실패해도 나머지 종목은 계속 진행
+            print(f"{ticker} 브리핑 생성 실패, 건너뜀: {exc}")
+            still_missing.append(ticker)
 
     sector_ids = [sw.sector_id for sw in list_sector_watchlist(db, current_user.id)]
     sector_briefings: list[SectorBriefing] = []
@@ -221,6 +224,9 @@ def refresh_briefing(current_user: User = Depends(get_current_user), db: Session
                 db, sector_id, briefing_date=today, force=True, briefing_session="additional"
             ))
         except ValueError:
+            still_missing_sectors.append(sector_id)
+        except RuntimeError as exc:  # noqa: BLE001 - LLM 생성 실패해도 나머지 섹터는 계속 진행
+            print(f"섹터 {sector_id} 브리핑 생성 실패, 건너뜀: {exc}")
             still_missing_sectors.append(sector_id)
 
     try:
@@ -261,6 +267,11 @@ def refresh_stock_briefing(
         return generate_daily_briefing(db, ticker, force=True, briefing_session="additional")
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="브리핑 생성에 실패했습니다. 잠시 후 다시 시도해주세요.",
+        ) from exc
 
 
 @router.post(
@@ -321,6 +332,11 @@ def refresh_single_sector_briefing(
         return generate_sector_briefing(db, sector_id, force=True, briefing_session="additional")
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="브리핑 생성에 실패했습니다. 잠시 후 다시 시도해주세요.",
+        ) from exc
 
 
 @router.get("/history", response_model=list[DailyBriefingRead])

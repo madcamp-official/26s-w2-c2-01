@@ -31,6 +31,10 @@ from app.services.llm.claude_client import (
 # 그대로 새어나온 경우(예: "(source_url: null)")를 깨진 출력으로 간주한다.
 _PUNCTUATION_ONLY = re.compile(r"^[\]\}\[\{,:;\s\"'\.]+$")
 _LEAKED_FIELD_NAME = re.compile(r"\bsource_url\b")
+# positive_factors/negative_factors/watch_issues/today_actions는 설명 문장이어야
+# 하는데, reasons에 들어가야 할 URL 하나만(괄호로 감싼 형태 포함) 새어나오는
+# 경우도 같은 계열의 깨진 출력이다 — 실측: "(https://finnhub.io/...)" 단독 항목.
+_BARE_URL_ONLY = re.compile(r"^\(?https?://\S+\)?$")
 
 
 def _find_malformed_strings(value: object) -> list[str]:
@@ -38,7 +42,11 @@ def _find_malformed_strings(value: object) -> list[str]:
     found: list[str] = []
     if isinstance(value, str):
         stripped = value.strip()
-        if stripped and (_PUNCTUATION_ONLY.match(stripped) or _LEAKED_FIELD_NAME.search(stripped)):
+        if stripped and (
+            _PUNCTUATION_ONLY.match(stripped)
+            or _LEAKED_FIELD_NAME.search(stripped)
+            or _BARE_URL_ONLY.match(stripped)
+        ):
             found.append(value)
     elif isinstance(value, dict):
         for v in value.values():
