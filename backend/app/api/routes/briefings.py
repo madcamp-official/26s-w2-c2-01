@@ -1,11 +1,11 @@
-from datetime import date
+from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
-from app.batch.collect_news import FinnhubNotConfigured
+from app.batch.collect_news import FinnhubNotConfigured, collect_for_ticker
 from app.batch.collect_news import run as collect_news_run
 from app.crud.sector_watchlist import list_sector_watchlist
 from app.crud.watchlist import list_watchlist
@@ -160,6 +160,15 @@ def refresh_stock_briefing(
     followed_tickers = {item.ticker for item in list_watchlist(db, current_user.id)}
     if ticker not in followed_tickers:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="관심 종목에서 찾을 수 없습니다.")
+
+    # 뉴스 재수집 없이 바로 재생성하면 DB에 이미 있는(오래된) 뉴스만 보게 되어
+    # "새로고침해도 최신 이슈가 안 잡히는" 문제가 생긴다 — 이 종목만 가볍게 먼저 수집한다.
+    try:
+        collect_for_ticker(db, ticker, since=date.today() - timedelta(days=3), until=date.today(), limit=8)
+    except FinnhubNotConfigured:
+        pass
+    except Exception as e:  # noqa: BLE001 - 뉴스 수집이 실패해도 강제 재생성은 계속 시도
+        print(f"종목 단건 새로고침 - 뉴스 재수집 중 오류: {e}")
 
     try:
         return generate_daily_briefing(db, ticker, briefing_date=date.today(), force=True)
