@@ -28,6 +28,12 @@ class Settings(BaseSettings):
     # 절반으로 줄인다 (factory.py의 HybridBriefingLLMClient). 없으면 Claude만 사용.
     GEMINI_API_KEY: str = ""
 
+    # 설정돼 있으면 2단계(해석·렌더링)를 자체 ML 서버의 Ollama(Gemma2)로 대체해
+    # Claude 호출을 아예 없앤다 (factory.py get_llm_client 참고). 예:
+    # "http://192.168.0.228:11434" — 컨테이너 안에서 접근 가능한 주소로 설정.
+    OLLAMA_BASE_URL: str = ""
+    OLLAMA_MODEL: str = "gemma2:9b"
+
     # 로컬 uvicorn 실행에서도 DB가 시드 10개 수준이면 서버 시작 직후 미국 종목 전체
     # import를 백그라운드로 1회 시도한다. Docker Compose는 command에서 이미 실행하지만,
     # import_us_stocks.py가 idempotent라 중복 실행돼도 기존 티커는 건너뛴다.
