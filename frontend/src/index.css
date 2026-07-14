@@ -187,7 +187,7 @@ svg{display:block}
 .vol-panel-head{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--line);font-size:12px;font-weight:700;color:var(--t2)}
 .vol-panel-head span:last-child{font-size:11px;font-weight:400;color:var(--t3)}
 .vol-list{display:flex;flex-direction:column}
-.vol-row{width:100%;display:grid;grid-template-columns:38px minmax(125px,1.4fr) 72px 84px 82px 92px minmax(92px,.9fr) 32px;align-items:center;gap:10px;border:0;border-bottom:1px solid var(--line);background:var(--card);color:var(--t1);padding:15px 18px;text-align:left;font:inherit;transition:.12s}
+.vol-row{width:100%;display:grid;grid-template-columns:38px minmax(125px,1.4fr) 72px 84px 82px minmax(92px,.9fr) 32px;align-items:center;gap:10px;border:0;border-bottom:1px solid var(--line);background:var(--card);color:var(--t1);padding:15px 18px;text-align:left;font:inherit;transition:.12s}
 .vol-row:last-child{border-bottom:0}
 .vol-row:hover{background:var(--panel)}
 .vol-rank{width:28px;height:28px;border-radius:9px;background:var(--panel);color:var(--t3);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800}

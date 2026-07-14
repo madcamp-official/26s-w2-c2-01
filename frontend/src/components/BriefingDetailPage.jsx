@@ -347,6 +347,7 @@ export default function BriefingDetailPage({
           />
         )}
         <div style={{ fontSize: 11, color: 'var(--t3)' }}>본 브리핑은 정보 제공 목적이며 투자 권유가 아닙니다.</div>
+        <div style={{ fontSize: 11, color: 'var(--t3)' }}>모든 투자에 대한 책임은 투자자 본인에게 있습니다.</div>
       </div>
     );
   }
