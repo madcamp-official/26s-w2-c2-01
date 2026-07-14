@@ -18,8 +18,6 @@ from app.db.session import SessionLocal
 from app.models.stock import Stock
 from app.models.news_article import NewsArticle
 from app.services.polygon_client import PolygonNotConfigured, fetch_daily_history_bulk
-from app.services.popular_stocks import get_popular_tickers
-from app.services.sector_classifier import classify_and_save_many
 from app.services.volatility_cache import (
     DAILY_CANDIDATES_FILE,
     TODAY_RESULTS_FILE,
@@ -36,20 +34,22 @@ from app.services.volatility_scanner import ScannerConfig, VolatilityScanner
 SCANNABLE_EXCHANGES = ["NASDAQ", "NYSE", "NYSE American", "CBOE BZX"]
 
 
-def load_universe(limit: int = 20) -> list[str]:
-    """거래대금 상위 종목 중 우리 DB에 존재하는 종목만 스캔한다."""
-    popular = get_popular_tickers(50)
+def load_universe(limit: int | None = None) -> list[str]:
+    """DB에서 스캔 가능한 미국 상장 보통주 전체를 불러온다.
+
+    ``limit``은 진단용 수동 실행에서만 사용한다. 기본 스캔은 제한 없이
+    전체 종목을 사용해야 ``all`` 탭이 인기 종목 일부로 축소되지 않는다.
+    """
     db = SessionLocal()
     try:
         stmt = (
-            select(Stock)
-            .where(Stock.exchange.in_(SCANNABLE_EXCHANGES), Stock.ticker.in_(popular))
+            select(Stock.ticker)
+            .where(Stock.exchange.in_(SCANNABLE_EXCHANGES))
             .order_by(Stock.ticker)
         )
-        stocks = list(db.scalars(stmt).all())
-        classify_and_save_many(db, stocks)
-        existing = {stock.ticker for stock in stocks}
-        return [ticker for ticker in popular if ticker in existing][:limit]
+        if limit is not None:
+            stmt = stmt.limit(limit)
+        return list(db.scalars(stmt).all())
     finally:
         db.close()
 

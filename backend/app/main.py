@@ -1,3 +1,4 @@
+import logging
 from contextlib import asynccontextmanager
 from threading import Thread
 
@@ -12,20 +13,33 @@ from app.jobs.bootstrap_stocks import run_startup_stock_import_if_needed
 from app.jobs.scheduler import run_refresh_cycle
 from app.jobs.scan_volatility import run_daily as run_volatility_daily
 from app.jobs.scan_volatility import run_premarket as run_volatility_premarket
+from app.jobs.scan_volatility import run_bootstrap_if_needed as run_volatility_bootstrap_if_needed
 from app.services.volatility_scanner import VolatilityScanner
 
 # 단일 uvicorn 프로세스(--workers 지정 안 함) 기준으로 설계됨.
 # 워커를 여러 개 띄우면 이 스케줄러도 워커 수만큼 중복 실행되니 주의.
 scheduler = BackgroundScheduler(timezone="Asia/Seoul")
 volatility_scanner = VolatilityScanner()
+logger = logging.getLogger(__name__)
+
+
+def run_startup_bootstrap() -> None:
+    """Import stocks first, then refresh a cache built from an old universe."""
+    try:
+        if settings.AUTO_IMPORT_US_STOCKS:
+            run_startup_stock_import_if_needed()
+        if settings.ENABLE_VOLATILITY_SCANNER:
+            run_volatility_bootstrap_if_needed(volatility_scanner)
+    except Exception:
+        logger.exception("Startup data bootstrap failed")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    if settings.AUTO_IMPORT_US_STOCKS:
+    if settings.AUTO_IMPORT_US_STOCKS or settings.ENABLE_VOLATILITY_SCANNER:
         Thread(
-            target=run_startup_stock_import_if_needed,
-            name="startup-stock-import",
+            target=run_startup_bootstrap,
+            name="startup-data-bootstrap",
             daemon=True,
         ).start()
 
