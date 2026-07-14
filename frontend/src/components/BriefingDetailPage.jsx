@@ -66,11 +66,12 @@ function TodaySessionTabs({ sessions, selected, onSelect, getUpdatedAt }) {
       {sessions.map((session) => {
         const updatedAt = getUpdatedAt(session.key);
         const time = formatUpdateTime(updatedAt || session.scheduled_at);
-        const sub = session.key === 'additional' && updatedAt
-          ? `KST ${formatTimeIn(updatedAt, 'Asia/Seoul')} · ET ${formatTimeIn(updatedAt, 'America/New_York')}`
-          : session.available
-            ? (updatedAt ? `${time} 업데이트` : '업데이트 대기')
-            : (session.historical ? '기록 없음' : `${time} 예정`);
+        // "업데이트"(실제 생성된) 것들은 전부 KST/ET 병기, "예정"은 KST만 그대로 둔다.
+        const sub = session.available
+          ? (updatedAt
+            ? `KST ${formatTimeIn(updatedAt, 'Asia/Seoul')} · ET ${formatTimeIn(updatedAt, 'America/New_York')}`
+            : '업데이트 대기')
+          : (session.historical ? '기록 없음' : `${time} 예정`);
         return (
           <button
             key={session.key}
