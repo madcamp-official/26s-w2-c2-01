@@ -24,6 +24,9 @@ _TABLES = ("daily_briefings", "sector_briefings", "market_overviews")
 
 def upgrade() -> None:
     for table in _TABLES:
+        # 기존 30~40자 제약이 걸린 채로 23자짜리 값을 UPDATE하면 그 UPDATE
+        # 자체가 위반이 되므로, 반드시 제약을 먼저 드롭한 뒤 백필해야 한다.
+        op.drop_constraint(f"ck_{table}_one_line_summary_length", table, type_="check")
         op.execute(
             f"""
             UPDATE {table}
@@ -31,7 +34,6 @@ def upgrade() -> None:
             WHERE one_line_summary IS NOT NULL AND char_length(one_line_summary) > 23
             """
         )
-        op.drop_constraint(f"ck_{table}_one_line_summary_length", table, type_="check")
         op.create_check_constraint(
             f"ck_{table}_one_line_summary_length",
             table,
