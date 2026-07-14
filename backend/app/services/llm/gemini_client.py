@@ -21,6 +21,7 @@ from app.services.llm.claude_client import (
     MARKET_SYSTEM_PROMPT,
     RENDER_SYSTEM_PROMPT,
 )
+from app.services.llm.output_validation import find_malformed_strings
 
 
 class GeminiBriefingLLMClient(BriefingLLMClient):
@@ -48,6 +49,9 @@ class GeminiBriefingLLMClient(BriefingLLMClient):
                 )
                 if response.parsed is None:
                     raise RuntimeError(f"Gemini 응답 파싱 실패: {response.text!r:.500}")
+                garbage = find_malformed_strings(response.parsed.model_dump())
+                if garbage:
+                    raise RuntimeError(f"깨진 출력 감지: {garbage[:2]!r}")
                 return response.parsed
             except Exception as exc:  # noqa: BLE001 - 실패 시 재시도, 최종 실패는 위로 전파
                 last_error = exc

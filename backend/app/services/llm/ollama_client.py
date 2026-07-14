@@ -15,8 +15,6 @@ Gemma2(9B)는 JSON 스키마 강제 디코딩 중 가끔 문자열 필드 안에
 
 from __future__ import annotations
 
-import re
-
 import httpx
 
 from app.schemas.llm import BriefingRender, FactsExtraction, MarketOverviewRender
@@ -26,40 +24,7 @@ from app.services.llm.claude_client import (
     MARKET_SYSTEM_PROMPT,
     RENDER_SYSTEM_PROMPT,
 )
-
-# 순수 구두점/괄호 파편("],", "},", "]" 등)이거나, 다른 필드명이 문자열 안에
-# 그대로 새어나온 경우(예: "(source_url: null)")를 깨진 출력으로 간주한다.
-_PUNCTUATION_ONLY = re.compile(r"^[\]\}\[\{,:;\s\"'\.]+$")
-_LEAKED_FIELD_NAME = re.compile(r"\bsource_url\b")
-# RENDER_SYSTEM_PROMPT 규칙: URL은 reasons[].source_url에만 허용되고, 그 외
-# 사람이 읽는 문장(summary/factor/explain/positive_factors/... )에는 절대
-# 들어가면 안 된다 — 실측: "...했습니다. (source_url: https://...)"처럼 문장
-# 뒤에 URL이 그대로 붙어나오는 경우.
-_URL_PATTERN = re.compile(r"https?://")
-
-
-def _find_malformed_strings(value: object, *, url_allowed: bool = False) -> list[str]:
-    """파싱된 결과를 재귀적으로 훑어 깨진 문자열 조각을 찾는다.
-
-    url_allowed는 지금 보는 값이 reasons[].source_url처럼 URL이 정상적으로
-    들어가는 자리인지를 나타낸다 — 그 자리가 아니면 URL이 섞인 것 자체가 오류.
-    """
-    found: list[str] = []
-    if isinstance(value, str):
-        stripped = value.strip()
-        if stripped and (
-            _PUNCTUATION_ONLY.match(stripped)
-            or _LEAKED_FIELD_NAME.search(stripped)
-            or (not url_allowed and _URL_PATTERN.search(stripped))
-        ):
-            found.append(value)
-    elif isinstance(value, dict):
-        for key, v in value.items():
-            found.extend(_find_malformed_strings(v, url_allowed=(key == "source_url")))
-    elif isinstance(value, list):
-        for v in value:
-            found.extend(_find_malformed_strings(v, url_allowed=url_allowed))
-    return found
+from app.services.llm.output_validation import find_malformed_strings
 
 
 class OllamaBriefingLLMClient(BriefingLLMClient):
@@ -88,7 +53,7 @@ class OllamaBriefingLLMClient(BriefingLLMClient):
                 resp.raise_for_status()
                 content = resp.json()["message"]["content"]
                 parsed = schema.model_validate_json(content)
-                garbage = _find_malformed_strings(parsed.model_dump())
+                garbage = find_malformed_strings(parsed.model_dump())
                 if garbage:
                     raise RuntimeError(f"깨진 출력 감지: {garbage[:2]!r}")
                 return parsed
