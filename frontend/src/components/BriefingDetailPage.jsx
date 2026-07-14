@@ -11,15 +11,33 @@ function DetailTimeTabs({ timeMode, setTimeMode }) {
   );
 }
 
+// PostgreSQL의 timestamp without time zone은 배포 DB에서 UTC로 저장된다.
+function normalizeUtc(value) {
+  return typeof value === 'string' && !/(Z|[+-]\d{2}:\d{2})$/.test(value) ? `${value}Z` : value;
+}
+
 function formatUpdateTime(value) {
   if (!value) return null;
-  // PostgreSQL의 timestamp without time zone은 배포 DB에서 UTC로 저장된다.
-  const normalized = typeof value === 'string' && !/(Z|[+-]\d{2}:\d{2})$/.test(value)
-    ? `${value}Z`
-    : value;
   return new Intl.DateTimeFormat('ko-KR', {
     timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit', hour12: false,
-  }).format(new Date(normalized));
+  }).format(new Date(normalizeUtc(value)));
+}
+
+function formatTimeIn(value, timeZone) {
+  if (!value) return null;
+  return new Intl.DateTimeFormat('ko-KR', {
+    timeZone, hour: '2-digit', minute: '2-digit', hour12: false,
+  }).format(new Date(normalizeUtc(value)));
+}
+
+// "추가"(수동 새로고침) 세션의 탭 라벨 — 장시작 이후 몇 시간 지나서 생성됐는지.
+function formatElapsedSinceOpen(generatedAt, marketOpenAt) {
+  if (!generatedAt || !marketOpenAt) return '추가';
+  const diffMs = new Date(normalizeUtc(generatedAt)) - new Date(normalizeUtc(marketOpenAt));
+  if (!Number.isFinite(diffMs)) return '추가';
+  const hours = diffMs / 3_600_000;
+  const sign = hours < 0 ? '-' : '+';
+  return `장시작 ${sign}${Math.abs(hours).toFixed(1)}h`;
 }
 
 function CitationList({ reasons }) {
@@ -48,6 +66,11 @@ function TodaySessionTabs({ sessions, selected, onSelect, getUpdatedAt }) {
       {sessions.map((session) => {
         const updatedAt = getUpdatedAt(session.key);
         const time = formatUpdateTime(updatedAt || session.scheduled_at);
+        const sub = session.key === 'additional' && updatedAt
+          ? `KST ${formatTimeIn(updatedAt, 'Asia/Seoul')} · ET ${formatTimeIn(updatedAt, 'America/New_York')}`
+          : session.available
+            ? (updatedAt ? `${time} 업데이트` : '업데이트 대기')
+            : (session.historical ? '기록 없음' : `${time} 예정`);
         return (
           <button
             key={session.key}
@@ -57,9 +80,7 @@ function TodaySessionTabs({ sessions, selected, onSelect, getUpdatedAt }) {
             onClick={() => onSelect(session.key)}
           >
             <span>{session.label}</span>
-            <small>{session.available
-              ? (updatedAt ? `${time} 업데이트` : '업데이트 대기')
-              : (session.historical ? '기록 없음' : `${time} 예정`)}</small>
+            <small>{sub}</small>
           </button>
         );
       })}
@@ -117,8 +138,12 @@ function historySessionsFor(dateValue, dateRows) {
   });
   const additional = dateRows.find((item) => item.briefing_session === 'additional');
   if (additional) {
+    // 장시작(전일 22:00 KST = 당일 13:00 UTC) 기준 경과 시간을 라벨에 쓴다.
+    const marketOpenIso = `${marketDate.toISOString().slice(0, 10)}T13:00:00Z`;
     sessions.push({
-      key: 'additional', label: '추가', available: true, historical: true,
+      key: 'additional',
+      label: formatElapsedSinceOpen(additional.generated_at, marketOpenIso),
+      available: true, historical: true,
       scheduled_at: additional.generated_at,
     });
   }
@@ -194,18 +219,41 @@ export default function BriefingDetailPage({
   overviewHistory, overviewHistoryLoading, overviewHistoryError,
   sectorHistory, sectorHistoryLoading, sectorHistoryError,
 }) {
-  const latestAvailableSession = [...briefingSessions].reverse().find((item) => item.available)?.key ?? null;
+  const marketOpenAt = briefingSessions.find((item) => item.key === 'market_open')?.scheduled_at;
+
+  // 공식 세션(장시작/장중/장마감/시간외) 중 지금 시점에 열린 것뿐 아니라, 수동
+  // 새로고침으로 생긴 "추가" 행까지 포함해서 실제 generated_at이 가장 최근인
+  // 걸 기본 탭으로 고른다 — 그래야 새로고침하면 그 결과가 바로 기본으로 보인다.
+  const currentRows = !detail ? [] : detail.type === 'overview'
+    ? marketOverviews
+    : detail.type === 'sector-briefing'
+      ? sectorBriefings.filter((row) => row.sector_id === detail.sectorId)
+      : stockBriefings.filter((row) => row.ticker === detail.ticker);
+  const availableKeys = new Set(briefingSessions.filter((item) => item.available).map((item) => item.key));
+  const candidateRows = currentRows.filter(
+    (row) => availableKeys.has(row.briefing_session) || row.briefing_session === 'additional'
+  );
+  const latestAvailableSession = candidateRows.length > 0
+    ? candidateRows.reduce((latest, row) => (
+      !latest || new Date(normalizeUtc(row.generated_at)) > new Date(normalizeUtc(latest.generated_at)) ? row : latest
+    )).briefing_session
+    : [...briefingSessions].reverse().find((item) => item.available)?.key ?? null;
+
   const [selectedSession, setSelectedSession] = useState(latestAvailableSession);
 
   useEffect(() => {
     setSelectedSession(latestAvailableSession);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [briefingDate, detail?.type, detail?.ticker, detail?.sectorId, latestAvailableSession]);
 
   const SessionTabs = ({ rows }) => {
     const additional = rows.find((row) => row.briefing_session === 'additional');
     const sessions = additional
       ? [...briefingSessions, {
-        key: 'additional', label: '추가', available: true, scheduled_at: additional.generated_at,
+        key: 'additional',
+        label: formatElapsedSinceOpen(additional.generated_at, marketOpenAt),
+        available: true,
+        scheduled_at: additional.generated_at,
       }]
       : briefingSessions;
     return (
