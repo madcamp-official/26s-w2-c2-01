@@ -100,6 +100,12 @@ export const listAnalysisPresets = () => request('/analysis-presets', { auth: fa
 // ── 오늘의 브리핑 ──
 export const getTodayBriefing = () => request('/briefings/today');
 export const refreshBriefing = () => request('/briefings/refresh', { method: 'POST' });
+export const refreshStockBriefing = (ticker) =>
+  request(`/briefings/refresh/stocks/${encodeURIComponent(ticker)}`, { method: 'POST' });
+export const refreshMarketOverview = () =>
+  request('/briefings/refresh/overview', { method: 'POST' });
+export const refreshSectorBriefing = (sectorId) =>
+  request(`/briefings/refresh/sectors/${sectorId}`, { method: 'POST' });
 export const getBriefingHistory = () => request('/briefings/history');
 export const getMarketOverviewHistory = () => request('/briefings/history/overview');
 export const getSectorBriefingHistory = () => request('/briefings/history/sectors');

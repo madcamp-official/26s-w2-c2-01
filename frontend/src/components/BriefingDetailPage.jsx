@@ -1,11 +1,82 @@
 import { SENT_LABEL } from '../data.js';
 import Icon from './Icon.jsx';
 
+function DetailTimeTabs({ timeMode, setTimeMode }) {
+  return (
+    <div className="ptabs">
+      <button className={timeMode === 'today' ? 'on' : ''} onClick={() => setTimeMode('today')}>오늘</button>
+      <button className={timeMode === 'history' ? 'on' : ''} onClick={() => setTimeMode('history')}>이전 기록</button>
+    </div>
+  );
+}
+
+function HistoryList({ rows, loading, error, emptyLabel }) {
+  if (loading) return <div className="strip">불러오는 중…</div>;
+  if (error) return <div className="strip" style={{ background: 'var(--neg-bg)', color: 'var(--neg)' }}>{error}</div>;
+  if (!rows.length) return <div className="strip">{emptyLabel}</div>;
+
+  return (
+    <div className="rows">
+      {rows.map((row) => {
+        const [label, className] = row.sentiment ? SENT_LABEL[row.sentiment] : [null, null];
+        return (
+          <div className="block" key={`${row.briefing_date}-${row.ticker ?? row.sector_id}`}>
+            <div className="block-h">
+              <h2 style={{ fontSize: 15 }}>{row.briefing_date}</h2>
+              {label && <span className={`tag ${className}`} style={{ marginLeft: 'auto' }}>{label}</span>}
+            </div>
+            {row.indices && Object.keys(row.indices).length > 0 && (
+              <div className="idxgrid" style={{ marginBottom: 16 }}>
+                {Object.entries(row.indices).map(([name, value]) => (
+                  <div key={name} className="idxcard"><div className="l">{name}</div><div className="v">{String(value)}</div></div>
+                ))}
+              </div>
+            )}
+            {row.summary && <p style={{ fontSize: 13.5, color: 'var(--t2)', lineHeight: 1.7 }}>{row.summary}</p>}
+            <div className="factgrid">
+              {row.positive_factors?.length > 0 && (
+                <div className="factbox pos"><div className="ft">긍정 요인</div>{row.positive_factors.map((x, i) => <div key={i}>{typeof x === 'string' ? x : JSON.stringify(x)}</div>)}</div>
+              )}
+              {row.negative_factors?.length > 0 && (
+                <div className="factbox neg"><div className="ft">부정 요인</div>{row.negative_factors.map((x, i) => <div key={i}>{typeof x === 'string' ? x : JSON.stringify(x)}</div>)}</div>
+              )}
+              {row.watch_issues?.length > 0 && (
+                <div className="factbox neu"><div className="ft">확인할 것</div>{row.watch_issues.map((x, i) => <div key={i}>{typeof x === 'string' ? x : JSON.stringify(x)}</div>)}</div>
+              )}
+            </div>
+            {row.reasons?.length > 0 && (
+              <div className="citelist">
+                {row.reasons.map((reason, i) => (
+                  <div key={i} className="citerow">
+                    <Icon size={13}>
+                      <path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1" />
+                      <path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1" />
+                    </Icon>
+                    {reason.source_url ? (
+                      <a href={reason.source_url} target="_blank" rel="noreferrer">{reason.factor ?? reason.explain ?? reason.source_url}</a>
+                    ) : (
+                      <span>{reason.factor ?? reason.explain ?? JSON.stringify(reason)}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function BriefingDetailPage({
-  detail, stocks, watch, onBack, onOpenDetail, onOpenLens, onToggleWatch,
+  detail, stocks, watch, onBack, onOpenLens, onToggleWatch,
+  timeMode, setTimeMode,
   briefingByTicker, missingTickers, marketOverview,
   sectorsById, sectorWatch, onOpenSectorLens, onToggleSectorWatch,
   sectorBriefingBySectorId, missingSectorIds,
+  history, historyLoading, historyError,
+  overviewHistory, overviewHistoryLoading, overviewHistoryError,
+  sectorHistory, sectorHistoryLoading, sectorHistoryError,
 }) {
   if (!detail) {
     return (
@@ -23,10 +94,15 @@ export default function BriefingDetailPage({
 
   if (detail.type === 'overview') {
     const indexEntries = marketOverview?.indices ? Object.entries(marketOverview.indices) : [];
+    const previousOverviews = overviewHistory.filter(
+      (row) => row.briefing_date !== marketOverview?.briefing_date
+    );
     return (
       <div className="maxw">
         {BackLink}
-        <div className="block">
+        <DetailTimeTabs timeMode={timeMode} setTimeMode={setTimeMode} />
+        {timeMode === 'today' ? (
+          <div className="block">
           <div className="block-h"><h2>전체 시황</h2></div>
           {marketOverview ? (
             <>
@@ -42,7 +118,15 @@ export default function BriefingDetailPage({
           ) : (
             <div className="strip">아직 전체 시황 브리핑이 생성되지 않았습니다. 뉴스 수집·분석 파이프라인이 연결되면 이곳에 표시됩니다.</div>
           )}
-        </div>
+          </div>
+        ) : (
+          <HistoryList
+            rows={previousOverviews}
+            loading={overviewHistoryLoading}
+            error={overviewHistoryError}
+            emptyLabel="이전 전체 시황 기록이 없습니다."
+          />
+        )}
         <div style={{ fontSize: 11, color: 'var(--t3)' }}>본 브리핑은 정보 제공 목적이며 투자 권유가 아닙니다.</div>
       </div>
     );
@@ -57,11 +141,16 @@ export default function BriefingDetailPage({
     const b = sectorBriefingBySectorId[sectorId];
     const inWatch = sectorWatch.includes(sectorId);
     const [lbl, cls] = b?.sentiment ? SENT_LABEL[b.sentiment] : [null, null];
+    const previousBriefings = sectorHistory.filter(
+      (row) => row.sector_id === sectorId && row.briefing_date !== b?.briefing_date
+    );
 
     return (
       <div className="maxw">
         {BackLink}
-        <div className="block">
+        <DetailTimeTabs timeMode={timeMode} setTimeMode={setTimeMode} />
+        {timeMode === 'today' ? (
+          <div className="block">
           <div className="block-h">
             <h2>{sector.name_ko} 섹터</h2>
             {lbl && <span className={`tag ${cls}`} style={{ marginLeft: 'auto' }}>{lbl}</span>}
@@ -111,7 +200,15 @@ export default function BriefingDetailPage({
             </button>
             <button className="btn" onClick={() => onToggleSectorWatch(sectorId)}>{inWatch ? '관심 섹터에서 제거' : '관심 섹터에 추가'}</button>
           </div>
-        </div>
+          </div>
+        ) : (
+          <HistoryList
+            rows={previousBriefings}
+            loading={sectorHistoryLoading}
+            error={sectorHistoryError}
+            emptyLabel="이 섹터의 이전 브리핑 기록이 없습니다."
+          />
+        )}
       </div>
     );
   }
@@ -125,16 +222,23 @@ export default function BriefingDetailPage({
   const b = briefingByTicker[t];
   const inWatch = watch.includes(t);
   const [lbl, cls] = b?.sentiment ? SENT_LABEL[b.sentiment] : [null, null];
+  const previousBriefings = history.filter(
+    (row) => row.ticker === t && row.briefing_date !== b?.briefing_date
+  );
 
   return (
     <div className="maxw">
       {BackLink}
-      <div className="block">
+      <DetailTimeTabs timeMode={timeMode} setTimeMode={setTimeMode} />
+      {timeMode === 'today' ? (
+        <div className="block">
         <div className="block-h">
           <h2>{t} · {s.name_ko || s.name_en}</h2>
           {lbl && <span className={`tag ${cls}`} style={{ marginLeft: 'auto' }}>{lbl}</span>}
         </div>
-        <p style={{ fontSize: 13, color: 'var(--t3)', marginBottom: 12 }}>{s.sector?.name_ko ?? '섹터 미지정'} · {s.exchange}</p>
+        <p style={{ fontSize: 13, color: 'var(--t3)', marginBottom: 12 }}>
+          섹터: {s.sector?.name_ko ?? '미지정'} · 거래소: {s.exchange?.toUpperCase() ?? '미지정'}
+        </p>
 
         {b ? (
           <>
@@ -180,7 +284,15 @@ export default function BriefingDetailPage({
           </button>
           <button className="btn" onClick={() => onToggleWatch(t)}>{inWatch ? '관심종목에서 제거' : '관심종목에 추가'}</button>
         </div>
-      </div>
+        </div>
+      ) : (
+        <HistoryList
+          rows={previousBriefings}
+          loading={historyLoading}
+          error={historyError}
+          emptyLabel="이 종목의 이전 브리핑 기록이 없습니다."
+        />
+      )}
     </div>
   );
 }

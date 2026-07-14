@@ -14,7 +14,8 @@ import {
   getMe, listStocks, listSectors, listAnalysisCategories, listAnalysisPresets,
   listWatchlist, addWatchlist, removeWatchlist, getTodayBriefing,
   listSectorWatchlist, addSectorWatchlist, removeSectorWatchlist,
-  refreshBriefing, getBriefingHistory, getMarketOverviewHistory, getSectorBriefingHistory,
+  refreshStockBriefing, refreshMarketOverview, refreshSectorBriefing,
+  getBriefingHistory, getMarketOverviewHistory, getSectorBriefingHistory,
   getTodayVolatility,
 } from './api.js';
 
@@ -125,9 +126,10 @@ export default function App() {
 
   // ── 화면 상태 ──
   const [view, setView] = useState('briefing'); // briefing | briefing-detail | mypage | lens
-  const [timeMode, setTimeMode] = useState('today'); // today | history
   const [briefingTab, setBriefingTab] = useState('mine');
+  const [briefingSearchOpen, setBriefingSearchOpen] = useState(false);
   const [detail, setDetail] = useState(null);
+  const [detailTimeMode, setDetailTimeMode] = useState('today'); // today | history
   const [stockSearch, setStockSearch] = useState('');
   const [sectorSearch, setSectorSearch] = useState('');
   const [lensTicker, setLensTicker] = useState(null);
@@ -138,12 +140,16 @@ export default function App() {
   const [catSearchQuery, setCatSearchQuery] = useState({});
   const [watchBusy, setWatchBusy] = useState(false);
   const [watchError, setWatchError] = useState('');
+  const [addingVolatilityTicker, setAddingVolatilityTicker] = useState(null);
   const [sectorWatchBusy, setSectorWatchBusy] = useState(false);
   const [sectorWatchError, setSectorWatchError] = useState('');
 
-  // ── 하루 1회 수동 새로고침 ──
-  const [refreshBusy, setRefreshBusy] = useState(false);
-  const [refreshError, setRefreshError] = useState('');
+  const [refreshingTicker, setRefreshingTicker] = useState(null);
+  const [refreshingOverview, setRefreshingOverview] = useState(false);
+  const [refreshingSectorId, setRefreshingSectorId] = useState(null);
+  const [removingTicker, setRemovingTicker] = useState(null);
+  const [removingSectorId, setRemovingSectorId] = useState(null);
+  const [briefingActionError, setBriefingActionError] = useState('');
 
   useEffect(() => {
     const query = stockSearch.trim();
@@ -179,7 +185,7 @@ export default function App() {
     };
   }, [stockSearch]);
 
-  // ── 이전 기록(오늘/이전 기록 탭) ──
+  // ── 상세 페이지 이전 기록 ──
   const [history, setHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState('');
@@ -193,39 +199,83 @@ export default function App() {
     if (user && view === 'volatility' && !volatility) loadVolatility();
   }, [user, view, volatility, loadVolatility]);
   useEffect(() => {
-    if (view !== 'briefing' || timeMode !== 'history') return;
-    setHistoryLoading(true);
-    setHistoryError('');
-    getBriefingHistory()
-      .then(setHistory)
-      .catch((err) => setHistoryError(err instanceof ApiError ? err.detail : '이전 기록을 불러오지 못했습니다.'))
-      .finally(() => setHistoryLoading(false));
+    if (view !== 'briefing-detail' || detailTimeMode !== 'history') return;
 
-    setOverviewHistoryLoading(true);
-    setOverviewHistoryError('');
-    getMarketOverviewHistory()
-      .then(setOverviewHistory)
-      .catch((err) => setOverviewHistoryError(err instanceof ApiError ? err.detail : '이전 기록을 불러오지 못했습니다.'))
-      .finally(() => setOverviewHistoryLoading(false));
+    if (detail?.type === 'stock') {
+      setHistoryLoading(true);
+      setHistoryError('');
+      getBriefingHistory()
+        .then(setHistory)
+        .catch((err) => setHistoryError(err instanceof ApiError ? err.detail : '이전 기록을 불러오지 못했습니다.'))
+        .finally(() => setHistoryLoading(false));
+    }
 
-    setSectorHistoryLoading(true);
-    setSectorHistoryError('');
-    getSectorBriefingHistory()
-      .then(setSectorHistory)
-      .catch((err) => setSectorHistoryError(err instanceof ApiError ? err.detail : '이전 기록을 불러오지 못했습니다.'))
-      .finally(() => setSectorHistoryLoading(false));
-  }, [view, timeMode]);
+    if (detail?.type === 'overview') {
+      setOverviewHistoryLoading(true);
+      setOverviewHistoryError('');
+      getMarketOverviewHistory()
+        .then(setOverviewHistory)
+        .catch((err) => setOverviewHistoryError(err instanceof ApiError ? err.detail : '이전 기록을 불러오지 못했습니다.'))
+        .finally(() => setOverviewHistoryLoading(false));
+    }
 
-  async function handleRefreshBriefing() {
-    setRefreshError('');
-    setRefreshBusy(true);
+    if (detail?.type === 'sector-briefing') {
+      setSectorHistoryLoading(true);
+      setSectorHistoryError('');
+      getSectorBriefingHistory()
+        .then(setSectorHistory)
+        .catch((err) => setSectorHistoryError(err instanceof ApiError ? err.detail : '이전 기록을 불러오지 못했습니다.'))
+        .finally(() => setSectorHistoryLoading(false));
+    }
+  }, [view, detailTimeMode, detail?.type, detail?.ticker, detail?.sectorId]);
+
+  async function handleRefreshStock(ticker) {
+    setBriefingActionError('');
+    setRefreshingTicker(ticker);
     try {
-      const b = await refreshBriefing();
-      setBriefing(b);
+      const updated = await refreshStockBriefing(ticker);
+      setBriefing((prev) => ({
+        ...prev,
+        stocks: [...(prev?.stocks ?? []).filter((item) => item.ticker !== ticker), updated],
+        missing_tickers: (prev?.missing_tickers ?? []).filter((item) => item !== ticker),
+      }));
     } catch (err) {
-      setRefreshError(err instanceof ApiError ? err.detail : '새로고침에 실패했습니다.');
+      setBriefingActionError(err instanceof ApiError ? err.detail : '종목 브리핑 새로고침에 실패했습니다.');
     } finally {
-      setRefreshBusy(false);
+      setRefreshingTicker(null);
+    }
+  }
+
+  async function handleRefreshSector(sectorId) {
+    setBriefingActionError('');
+    setRefreshingSectorId(sectorId);
+    try {
+      const updated = await refreshSectorBriefing(sectorId);
+      setBriefing((prev) => ({
+        ...prev,
+        sector_briefings: [
+          ...(prev?.sector_briefings ?? []).filter((item) => item.sector_id !== sectorId),
+          updated,
+        ],
+        missing_sectors: (prev?.missing_sectors ?? []).filter((item) => item !== sectorId),
+      }));
+    } catch (err) {
+      setBriefingActionError(err instanceof ApiError ? err.detail : '섹터 브리핑 새로고침에 실패했습니다.');
+    } finally {
+      setRefreshingSectorId(null);
+    }
+  }
+
+  async function handleRefreshOverview() {
+    setBriefingActionError('');
+    setRefreshingOverview(true);
+    try {
+      const updated = await refreshMarketOverview();
+      setBriefing((prev) => ({ ...prev, market_overview: updated }));
+    } catch (err) {
+      setBriefingActionError(err instanceof ApiError ? err.detail : '전체 시황 새로고침에 실패했습니다.');
+    } finally {
+      setRefreshingOverview(false);
     }
   }
 
@@ -310,6 +360,7 @@ export default function App() {
   }, []);
   const openDetail = useCallback((d) => {
     setDetail(d);
+    setDetailTimeMode('today');
     setView('briefing-detail');
   }, []);
 
@@ -323,7 +374,10 @@ export default function App() {
       // 응답에 담긴 최신 stock(섹터 포함)으로 stocks 목록도 갱신해야
       // 방금 연 렌즈 화면이 "섹터 미지정" 같은 오래된 값을 보지 않는다.
       if (item.stock) {
-        setStocks((prev) => prev.map((s) => (s.ticker === item.stock.ticker ? item.stock : s)));
+        setStocks((prev) => [
+          ...prev.filter((stock) => stock.ticker !== item.stock.ticker),
+          item.stock,
+        ]);
       }
       setStockSearch('');
       openLens(ticker);
@@ -333,13 +387,55 @@ export default function App() {
       setWatchBusy(false);
     }
   }
+
+  async function handleVolatilityStock(ticker) {
+    setWatchError('');
+    if (watch.includes(ticker)) {
+      openDetail({ type: 'stock', ticker });
+      return;
+    }
+
+    setWatchBusy(true);
+    setAddingVolatilityTicker(ticker);
+    try {
+      const item = await addWatchlist(ticker);
+      setWatchItems((prev) => [...prev, item]);
+      if (item.stock) {
+        setStocks((prev) => [
+          ...prev.filter((stock) => stock.ticker !== item.stock.ticker),
+          item.stock,
+        ]);
+      }
+
+      setBriefing((prev) => ({
+        ...prev,
+        missing_tickers: [...new Set([...(prev?.missing_tickers ?? []), ticker])],
+      }));
+      openDetail({ type: 'stock', ticker });
+
+      try {
+        setBriefing(await getTodayBriefing());
+      } catch (err) {
+        setWatchError(err instanceof ApiError ? err.detail : '브리핑을 불러오지 못했습니다.');
+      }
+    } catch (err) {
+      setWatchError(err instanceof ApiError ? err.detail : '관심종목 추가에 실패했습니다.');
+    } finally {
+      setWatchBusy(false);
+      setAddingVolatilityTicker(null);
+    }
+  }
   async function handleRemoveWatch(ticker) {
     setWatchError('');
+    setBriefingActionError('');
+    setRemovingTicker(ticker);
     try {
       await removeWatchlist(ticker);
       setWatchItems((prev) => prev.filter((w) => w.ticker !== ticker));
     } catch (err) {
-      setWatchError(err instanceof ApiError ? err.detail : '삭제에 실패했습니다.');
+      setBriefingActionError(err instanceof ApiError ? err.detail : '삭제에 실패했습니다.');
+    } finally {
+      setRemovingTicker(null);
     }
   }
   async function handleToggleWatch(ticker) {
@@ -368,11 +464,15 @@ export default function App() {
   }
   async function handleRemoveSector(sectorId) {
     setSectorWatchError('');
+    setBriefingActionError('');
+    setRemovingSectorId(sectorId);
     try {
       await removeSectorWatchlist(sectorId);
       setSectorWatchItems((prev) => prev.filter((w) => w.sector_id !== sectorId));
     } catch (err) {
-      setSectorWatchError(err instanceof ApiError ? err.detail : '삭제에 실패했습니다.');
+      setBriefingActionError(err instanceof ApiError ? err.detail : '삭제에 실패했습니다.');
+    } finally {
+      setRemovingSectorId(null);
     }
   }
   async function handleToggleSectorWatch(sectorId) {
@@ -479,10 +579,10 @@ export default function App() {
             <>
               {view === 'briefing' && (
                 <BriefingPage
-                  timeMode={timeMode}
-                  setTimeMode={setTimeMode}
                   briefingTab={briefingTab}
                   setBriefingTab={setBriefingTab}
+                  searchOpen={briefingSearchOpen}
+                  setSearchOpen={setBriefingSearchOpen}
                   stocks={stocks}
                   popularStocks={popularStocks}
                   stockSearchResults={stockSearchResults}
@@ -497,15 +597,17 @@ export default function App() {
                   briefingByTicker={briefingByTicker}
                   missingTickers={missingTickers}
                   marketOverview={briefing?.market_overview ?? null}
-                  onRefresh={handleRefreshBriefing}
-                  refreshBusy={refreshBusy}
-                  refreshError={refreshError}
-                  history={history}
-                  historyLoading={historyLoading}
-                  historyError={historyError}
-                  overviewHistory={overviewHistory}
-                  overviewHistoryLoading={overviewHistoryLoading}
-                  overviewHistoryError={overviewHistoryError}
+                  onRefreshStock={handleRefreshStock}
+                  onRemoveStock={handleRemoveWatch}
+                  refreshingTicker={refreshingTicker}
+                  removingTicker={removingTicker}
+                  onRefreshSector={handleRefreshSector}
+                  onRemoveSector={handleRemoveSector}
+                  refreshingSectorId={refreshingSectorId}
+                  removingSectorId={removingSectorId}
+                  actionError={briefingActionError}
+                  onRefreshOverview={handleRefreshOverview}
+                  refreshingOverview={refreshingOverview}
                   sectors={sectors}
                   sectorWatch={sectorWatch}
                   sectorWatchBusy={sectorWatchBusy}
@@ -515,19 +617,17 @@ export default function App() {
                   onAddSector={handleAddSector}
                   sectorBriefingBySectorId={sectorBriefingBySectorId}
                   missingSectorIds={missingSectorIds}
-                  sectorHistory={sectorHistory}
-                  sectorHistoryLoading={sectorHistoryLoading}
-                  sectorHistoryError={sectorHistoryError}
                 />
               )}
 
               {view === 'briefing-detail' && (
                 <BriefingDetailPage
                   detail={detail}
+                  timeMode={detailTimeMode}
+                  setTimeMode={setDetailTimeMode}
                   stocks={stocks}
                   watch={watch}
                   onBack={() => setView('briefing')}
-                  onOpenDetail={openDetail}
                   onOpenLens={openLens}
                   onToggleWatch={handleToggleWatch}
                   briefingByTicker={briefingByTicker}
@@ -539,6 +639,15 @@ export default function App() {
                   onToggleSectorWatch={handleToggleSectorWatch}
                   sectorBriefingBySectorId={sectorBriefingBySectorId}
                   missingSectorIds={missingSectorIds}
+                  history={history}
+                  historyLoading={historyLoading}
+                  historyError={historyError}
+                  overviewHistory={overviewHistory}
+                  overviewHistoryLoading={overviewHistoryLoading}
+                  overviewHistoryError={overviewHistoryError}
+                  sectorHistory={sectorHistory}
+                  sectorHistoryLoading={sectorHistoryLoading}
+                  sectorHistoryError={sectorHistoryError}
                 />
               )}
 
@@ -548,8 +657,11 @@ export default function App() {
                   loading={volatilityLoading}
                   error={volatilityError}
                   stocksByTicker={stocksByTicker}
+                  watch={watch}
+                  addingTicker={addingVolatilityTicker}
+                  actionError={watchError}
                   onRetry={loadVolatility}
-                  onOpenDetail={openDetail}
+                  onAddOrOpen={handleVolatilityStock}
                 />
               )}
 

@@ -149,6 +149,53 @@ def refresh_briefing(current_user: User = Depends(get_current_user), db: Session
     )
 
 
+@router.post("/refresh/stocks/{ticker}", response_model=DailyBriefingRead)
+def refresh_stock_briefing(
+    ticker: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """현재 사용자의 관심 종목 하나만 오늘자로 강제 재생성한다."""
+    ticker = ticker.upper()
+    followed_tickers = {item.ticker for item in list_watchlist(db, current_user.id)}
+    if ticker not in followed_tickers:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="관심 종목에서 찾을 수 없습니다.")
+
+    try:
+        return generate_daily_briefing(db, ticker, briefing_date=date.today(), force=True)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+
+
+@router.post("/refresh/overview", response_model=MarketOverviewRead)
+def refresh_market_overview(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """전체 종목·섹터 브리핑은 건드리지 않고 오늘의 전체 시황만 강제 재생성한다."""
+    try:
+        return generate_market_overview(db, briefing_date=date.today(), force=True)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+
+
+@router.post("/refresh/sectors/{sector_id}", response_model=SectorBriefingRead)
+def refresh_single_sector_briefing(
+    sector_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """현재 사용자의 관심 섹터 하나만 오늘자로 강제 재생성한다."""
+    followed_sector_ids = {item.sector_id for item in list_sector_watchlist(db, current_user.id)}
+    if sector_id not in followed_sector_ids:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="관심 섹터에서 찾을 수 없습니다.")
+
+    try:
+        return generate_sector_briefing(db, sector_id, briefing_date=date.today(), force=True)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+
+
 @router.get("/history", response_model=list[DailyBriefingRead])
 def briefing_history(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """관심종목 전체의 과거 브리핑을 날짜 역순으로 반환한다 (Claude 재호출 없이 DB 조회만)."""

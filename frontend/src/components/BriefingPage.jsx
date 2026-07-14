@@ -2,53 +2,39 @@ import { useDeferredValue, useMemo } from 'react';
 import { SENT_LABEL } from '../data.js';
 import Icon from './Icon.jsx';
 
-function HistoryRow({ row, stocksByTicker, onOpenDetail }) {
-  const stock = stocksByTicker[row.ticker];
-  const [lbl, cls] = row.sentiment ? SENT_LABEL[row.sentiment] : [null, null];
+function RowActions({ label, refreshing, removing, onRefresh, onRemove }) {
+  const busy = refreshing || removing;
   return (
-    <div className="srow" style={{ cursor: 'pointer' }} onClick={() => onOpenDetail({ type: 'stock', ticker: row.ticker })}>
-      <div className="m">
-        <div className="tk">
-          <span className="sym">{row.briefing_date}</span>
-          <span className="sym">{row.ticker}</span>
-          {lbl && <span className={`tag ${cls}`}>{lbl}</span>}
-          <span className="sec">{stock?.name_ko || stock?.name_en || row.ticker}</span>
-        </div>
-        <div className="desc">{row.summary ?? ''}</div>
-      </div>
+    <div style={{ display: 'flex', gap: 6, marginTop: 7 }} onClick={(event) => event.stopPropagation()}>
+      <button
+        type="button"
+        className="btn"
+        style={{ padding: '6px 9px', fontSize: 12 }}
+        disabled={busy}
+        title={`${label} 브리핑 새로고침`}
+        aria-label={`${label} 브리핑 새로고침`}
+        onClick={onRefresh}
+      >
+        <Icon size={14}><path d="M4 4v6h6M20 20v-6h-6" /><path d="M20 8a8 8 0 0 0-14.9-3M4 16a8 8 0 0 0 14.9 3" /></Icon>
+      </button>
+      {onRemove && (
+        <button
+          type="button"
+          className="btn"
+          style={{ padding: '6px 8px', lineHeight: 0 }}
+          disabled={busy}
+          title={`관심 ${label}에서 삭제`}
+          aria-label={`관심 ${label}에서 삭제`}
+          onClick={onRemove}
+        >
+          <Icon size={14}><path d="M18 6L6 18M6 6l12 12" /></Icon>
+        </button>
+      )}
     </div>
   );
 }
 
-function OverviewHistoryRow({ row, onOpenDetail }) {
-  return (
-    <div className="srow" style={{ cursor: 'pointer' }} onClick={() => onOpenDetail({ type: 'overview' })}>
-      <div className="m">
-        <div className="tk"><span className="sym">{row.briefing_date}</span><span className="sym">전체 시황</span></div>
-        <div className="desc">{row.summary ?? ''}</div>
-      </div>
-    </div>
-  );
-}
-
-function SectorHistoryRow({ row, sectorsById, onOpenDetail }) {
-  const sector = sectorsById[row.sector_id];
-  const [lbl, cls] = row.sentiment ? SENT_LABEL[row.sentiment] : [null, null];
-  return (
-    <div className="srow" style={{ cursor: 'pointer' }} onClick={() => onOpenDetail({ type: 'sector-briefing', sectorId: row.sector_id })}>
-      <div className="m">
-        <div className="tk">
-          <span className="sym">{row.briefing_date}</span>
-          {lbl && <span className={`tag ${cls}`}>{lbl}</span>}
-          <span className="sec">{sector?.name_ko ?? `섹터 #${row.sector_id}`}</span>
-        </div>
-        <div className="desc">{row.summary ?? ''}</div>
-      </div>
-    </div>
-  );
-}
-
-function StockCard({ stock, briefing, missing, onOpenDetail }) {
+function StockCard({ stock, briefing, missing, onOpenDetail, onRefresh, onRemove, refreshing, removing }) {
   const { ticker } = stock;
   const [lbl, cls] = briefing?.sentiment ? SENT_LABEL[briefing.sentiment] : [null, null];
   return (
@@ -63,16 +49,21 @@ function StockCard({ stock, briefing, missing, onOpenDetail }) {
           {briefing?.summary ?? (missing ? '아직 브리핑이 생성되지 않았습니다.' : '')}
         </div>
       </div>
-      {briefing && (
-        <div className="chg">
-          <div className="cnt">이슈 {(briefing.positive_factors?.length ?? 0) + (briefing.negative_factors?.length ?? 0)}건</div>
-        </div>
-      )}
+      <div className="chg">
+        {briefing && <div className="cnt">이슈 {(briefing.positive_factors?.length ?? 0) + (briefing.negative_factors?.length ?? 0)}건</div>}
+        <RowActions
+          label="종목"
+          refreshing={refreshing}
+          removing={removing}
+          onRefresh={onRefresh}
+          onRemove={onRemove}
+        />
+      </div>
     </div>
   );
 }
 
-function SectorCard({ sector, briefing, missing, onOpenDetail }) {
+function SectorCard({ sector, briefing, missing, onOpenDetail, onRefresh, onRemove, refreshing, removing }) {
   const [lbl, cls] = briefing?.sentiment ? SENT_LABEL[briefing.sentiment] : [null, null];
   return (
     <div className="srow" style={{ cursor: 'pointer' }} onClick={() => onOpenDetail({ type: 'sector-briefing', sectorId: sector.id })}>
@@ -85,26 +76,31 @@ function SectorCard({ sector, briefing, missing, onOpenDetail }) {
           {briefing?.summary ?? (missing ? '아직 브리핑이 생성되지 않았습니다.' : '')}
         </div>
       </div>
-      {briefing && (
-        <div className="chg">
-          <div className="cnt">이슈 {(briefing.positive_factors?.length ?? 0) + (briefing.negative_factors?.length ?? 0)}건</div>
-        </div>
-      )}
+      <div className="chg">
+        {briefing && <div className="cnt">이슈 {(briefing.positive_factors?.length ?? 0) + (briefing.negative_factors?.length ?? 0)}건</div>}
+        <RowActions
+          label="섹터"
+          refreshing={refreshing}
+          removing={removing}
+          onRefresh={onRefresh}
+          onRemove={onRemove}
+        />
+      </div>
     </div>
   );
 }
 
 export default function BriefingPage({
-  timeMode, setTimeMode, briefingTab, setBriefingTab,
+  briefingTab, setBriefingTab,
+  searchOpen, setSearchOpen,
   stocks, popularStocks, stockSearchResults, stockSearchLoading,
   watch, watchBusy, watchError, stockSearch, setStockSearch, onOpenDetail, onAddStock,
   briefingByTicker, missingTickers, marketOverview,
-  onRefresh, refreshBusy, refreshError,
-  history, historyLoading, historyError,
-  overviewHistory, overviewHistoryLoading, overviewHistoryError,
+  onRefreshStock, onRemoveStock, refreshingTicker, removingTicker,
+  onRefreshSector, onRemoveSector, refreshingSectorId, removingSectorId, actionError,
+  onRefreshOverview, refreshingOverview,
   sectors, sectorWatch, sectorWatchBusy, sectorWatchError, sectorSearch, setSectorSearch, onAddSector,
   sectorBriefingBySectorId, missingSectorIds,
-  sectorHistory, sectorHistoryLoading, sectorHistoryError,
 }) {
   const deferredStockSearch = useDeferredValue(stockSearch);
   const deferredSectorSearch = useDeferredValue(sectorSearch);
@@ -144,45 +140,41 @@ export default function BriefingPage({
 
   return (
     <div className="maxw">
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 4 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 4 }}>
         <p className="hint2" style={{ fontSize: 13, margin: 0 }}>안 본 사이 있었던 일만 간단히 정리했습니다. 장시작·장중·장마감·휴장 중 하루 4번 자동으로 갱신됩니다.</p>
-        <button className="btn" style={{ flex: '0 0 auto' }} disabled={refreshBusy} onClick={onRefresh}>
-          <Icon size={14}><path d="M4 4v6h6M20 20v-6h-6" /><path d="M20 8a8 8 0 0 0-14.9-3M4 16a8 8 0 0 0 14.9 3" /></Icon> {refreshBusy ? '새로고침 중…' : '새로고침 (하루 1회)'}
-        </button>
+        <span className="hint2" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, margin: 0, whiteSpace: 'nowrap' }}>
+          <Icon size={14}><path d="M4 4v6h6M20 20v-6h-6" /><path d="M20 8a8 8 0 0 0-14.9-3M4 16a8 8 0 0 0 14.9 3" /></Icon>
+          새로고침
+        </span>
       </div>
-      {refreshError && <div className="strip" style={{ background: 'var(--neg-bg)', color: 'var(--neg)', marginBottom: 10 }}>{refreshError}</div>}
-
-      <div className="ptabs">
-        <button className={timeMode === 'today' ? 'on' : ''} onClick={() => setTimeMode('today')}>오늘</button>
-        <button
-          className={timeMode === 'history' ? 'on' : ''}
-          onClick={() => { setTimeMode('history'); if (briefingTab === 'search') setBriefingTab('mine'); }}
-        >이전 기록</button>
-      </div>
+      {actionError && <div className="strip" style={{ background: 'var(--neg-bg)', color: 'var(--neg)', marginBottom: 10 }}>{actionError}</div>}
 
       <div className="chips" style={{ marginBottom: 14 }}>
         {[['mine', '관심 종목'], ['sector', '관심 섹터'], ['overview', '전체']].map(([k, l]) => (
-          <span key={k} className={`chip ${briefingTab === k ? 'on' : ''}`} onClick={() => setBriefingTab(k)}>{l}</span>
+          <span
+            key={k}
+            className={`chip ${briefingTab === k ? 'on' : ''}`}
+            onClick={() => {
+              setBriefingTab(k);
+              if (k === 'overview') setSearchOpen(false);
+            }}
+          >{l}</span>
         ))}
         <span
-          className={`chip ${briefingTab === 'search' ? 'on' : ''}`}
-          style={{ marginLeft: 'auto' }}
-          onClick={() => { setTimeMode('today'); setBriefingTab('search'); }}
+          className={`chip ${searchOpen ? 'on' : ''}`}
+          style={{
+            marginLeft: 'auto',
+            opacity: briefingTab === 'overview' ? 0.45 : 1,
+            cursor: briefingTab === 'overview' ? 'not-allowed' : 'pointer',
+          }}
+          aria-disabled={briefingTab === 'overview'}
+          onClick={() => {
+            if (briefingTab !== 'overview') setSearchOpen((open) => !open);
+          }}
         >검색</span>
       </div>
 
-      {timeMode === 'today' && briefingTab === 'overview' && (
-        <div className="rows">
-          <div className="srow" style={{ cursor: 'pointer' }} onClick={() => onOpenDetail({ type: 'overview' })}>
-            <div className="m">
-              <div className="tk"><span className="sym">전체 시황</span></div>
-              <div className="desc">{marketOverview?.summary ?? '아직 전체 시황 브리핑이 생성되지 않았습니다.'}</div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {timeMode === 'today' && briefingTab === 'sector' && (
+      {searchOpen && briefingTab === 'sector' && (
         <>
           <div className="searchbox">
             <Icon size={16}><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /></Icon>
@@ -206,26 +198,10 @@ export default function BriefingPage({
               </div>
             ))}
           </div>
-
-          {watchSectors.length ? (
-            <div className="rows" style={{ marginTop: 16 }}>
-              {watchSectors.map((s) => (
-                <SectorCard
-                  key={s.id}
-                  sector={s}
-                  briefing={sectorBriefingBySectorId[s.id]}
-                  missing={missingSectorIds.has(s.id)}
-                  onOpenDetail={onOpenDetail}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="strip" style={{ marginTop: 14 }}>검색해서 관심 섹터를 추가하면 여기 섹터 브리핑이 생성됩니다.</div>
-          )}
         </>
       )}
 
-      {timeMode === 'today' && briefingTab === 'search' && (
+      {searchOpen && briefingTab !== 'sector' && (
         <>
           <div className="searchbox">
             <Icon size={16}><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /></Icon>
@@ -253,10 +229,52 @@ export default function BriefingPage({
         </>
       )}
 
-      {timeMode === 'today' && briefingTab === 'mine' && (
+      {briefingTab === 'overview' && (
+        <div className="rows">
+          <div className="srow" style={{ cursor: 'pointer' }} onClick={() => onOpenDetail({ type: 'overview' })}>
+            <div className="m">
+              <div className="tk"><span className="sym">전체 시황</span></div>
+              <div className="desc">{marketOverview?.summary ?? '아직 전체 시황 브리핑이 생성되지 않았습니다.'}</div>
+            </div>
+            <div className="chg">
+              <RowActions
+                label="전체 시황"
+                refreshing={refreshingOverview}
+                onRefresh={onRefreshOverview}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {briefingTab === 'sector' && (
+        <>
+          {watchSectors.length ? (
+            <div className="rows" style={{ marginTop: searchOpen ? 16 : 0 }}>
+              {watchSectors.map((s) => (
+                <SectorCard
+                  key={s.id}
+                  sector={s}
+                  briefing={sectorBriefingBySectorId[s.id]}
+                  missing={missingSectorIds.has(s.id)}
+                  onOpenDetail={onOpenDetail}
+                  onRefresh={() => onRefreshSector(s.id)}
+                  onRemove={() => onRemoveSector(s.id)}
+                  refreshing={refreshingSectorId === s.id}
+                  removing={removingSectorId === s.id}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="strip" style={{ marginTop: 14 }}>검색해서 관심 섹터를 추가하면 여기 섹터 브리핑이 생성됩니다.</div>
+          )}
+        </>
+      )}
+
+      {briefingTab === 'mine' && (
         <>
           {watchStocks.length ? (
-            <div className="rows">
+            <div className="rows" style={{ marginTop: searchOpen ? 16 : 0 }}>
               {watchStocks.map((s) => (
                 <StockCard
                   key={s.ticker}
@@ -264,6 +282,10 @@ export default function BriefingPage({
                   briefing={briefingByTicker[s.ticker]}
                   missing={missingTickers.has(s.ticker)}
                   onOpenDetail={onOpenDetail}
+                  onRefresh={() => onRefreshStock(s.ticker)}
+                  onRemove={() => onRemoveStock(s.ticker)}
+                  refreshing={refreshingTicker === s.ticker}
+                  removing={removingTicker === s.ticker}
                 />
               ))}
             </div>
@@ -273,44 +295,6 @@ export default function BriefingPage({
         </>
       )}
 
-      {timeMode === 'history' && briefingTab === 'overview' && (
-        <div className="rows">
-          {overviewHistoryLoading && <div className="hint2" style={{ padding: '8px 2px' }}>불러오는 중…</div>}
-          {overviewHistoryError && <div className="strip" style={{ background: 'var(--neg-bg)', color: 'var(--neg)' }}>{overviewHistoryError}</div>}
-          {!overviewHistoryLoading && !overviewHistoryError && !overviewHistory.length && (
-            <div className="strip">아직 생성된 전체 시황이 없습니다.</div>
-          )}
-          {overviewHistory.map((row) => (
-            <OverviewHistoryRow key={row.briefing_date} row={row} onOpenDetail={onOpenDetail} />
-          ))}
-        </div>
-      )}
-
-      {timeMode === 'history' && briefingTab === 'sector' && (
-        <div className="rows">
-          {sectorHistoryLoading && <div className="hint2" style={{ padding: '8px 2px' }}>불러오는 중…</div>}
-          {sectorHistoryError && <div className="strip" style={{ background: 'var(--neg-bg)', color: 'var(--neg)' }}>{sectorHistoryError}</div>}
-          {!sectorHistoryLoading && !sectorHistoryError && !sectorHistory.length && (
-            <div className="strip">아직 생성된 섹터 브리핑이 없습니다.</div>
-          )}
-          {sectorHistory.map((row) => (
-            <SectorHistoryRow key={`${row.sector_id}-${row.briefing_date}`} row={row} sectorsById={sectorsById} onOpenDetail={onOpenDetail} />
-          ))}
-        </div>
-      )}
-
-      {timeMode === 'history' && briefingTab === 'mine' && (
-        <div className="rows">
-          {historyLoading && <div className="hint2" style={{ padding: '8px 2px' }}>불러오는 중…</div>}
-          {historyError && <div className="strip" style={{ background: 'var(--neg-bg)', color: 'var(--neg)' }}>{historyError}</div>}
-          {!historyLoading && !historyError && !history.length && (
-            <div className="strip">아직 생성된 브리핑이 없습니다.</div>
-          )}
-          {history.map((row) => (
-            <HistoryRow key={`${row.ticker}-${row.briefing_date}`} row={row} stocksByTicker={stocksByTicker} onOpenDetail={onOpenDetail} />
-          ))}
-        </div>
-      )}
     </div>
   );
 }

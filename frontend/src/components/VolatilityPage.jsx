@@ -29,15 +29,10 @@ function formatUpdatedAt(value) {
   }).format(date);
 }
 
-function VolatilityRow({ rank, metrics, stock, onOpenDetail }) {
+function VolatilityRow({ rank, metrics, stock, inWatch, adding, onAddOrOpen }) {
   const ticker = metrics.ticker;
   return (
-    <button
-      type="button"
-      className="vol-row"
-      onClick={() => onOpenDetail({ type: 'stock', ticker })}
-      aria-label={`${ticker} 종목 상세 보기`}
-    >
+    <div className="vol-row">
       <span className="vol-rank">{rank}</span>
       <span className="vol-company">
         <span className="vol-ticker">{ticker}</span>
@@ -64,12 +59,27 @@ function VolatilityRow({ rank, metrics, stock, onOpenDetail }) {
         <b>{formatMarketCap(metrics.market_cap_usd)}</b>
         <span>시가총액</span>
       </span>
-      <span className="vol-arrow"><Icon size={16}><path d="M9 18l6-6-6-6" /></Icon></span>
-    </button>
+      <button
+        type="button"
+        className={`vol-add ${inWatch ? 'on' : ''}`}
+        disabled={adding}
+        title={inWatch ? `${ticker} 브리핑 상세 보기` : `${ticker} 관심 종목에 추가`}
+        aria-label={inWatch ? `${ticker} 브리핑 상세 보기` : `${ticker} 관심 종목에 추가하고 브리핑 상세 보기`}
+        onClick={() => onAddOrOpen(ticker)}
+      >
+        {adding ? (
+          <span className="vol-spinner" />
+        ) : inWatch ? (
+          <Icon size={17}><path d="M5 12l4 4L19 6" /></Icon>
+        ) : (
+          <Icon size={17}><path d="M12 5v14M5 12h14" /></Icon>
+        )}
+      </button>
+    </div>
   );
 }
 
-export default function VolatilityPage({ data, loading, error, stocksByTicker, onRetry, onOpenDetail }) {
+export default function VolatilityPage({ data, loading, error, stocksByTicker, watch, addingTicker, actionError, onRetry, onAddOrOpen }) {
   const [tab, setTab] = useState('blue_chip');
   const tabData = data?.[tab];
   const items = (tabData?.tickers ?? [])
@@ -114,6 +124,12 @@ export default function VolatilityPage({ data, loading, error, stocksByTicker, o
         </button>
       </div>
 
+      {actionError && (
+        <div className="strip" style={{ background: 'var(--neg-bg)', color: 'var(--neg)', marginBottom: 12 }}>
+          {actionError}
+        </div>
+      )}
+
       <div className="vol-panel">
         <div className="vol-panel-head">
           <span>{data?.score_name ?? '변동성 주목 점수'} 상위 종목</span>
@@ -142,7 +158,9 @@ export default function VolatilityPage({ data, loading, error, stocksByTicker, o
                 rank={index + 1}
                 metrics={metrics}
                 stock={stocksByTicker[metrics.ticker]}
-                onOpenDetail={onOpenDetail}
+                inWatch={watch.includes(metrics.ticker)}
+                adding={addingTicker === metrics.ticker}
+                onAddOrOpen={onAddOrOpen}
               />
             ))}
           </div>
