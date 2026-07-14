@@ -48,15 +48,22 @@ export default function Sidebar({ active, onNav, theme, onToggleTheme, nickname,
 
       <div className="grow" />
 
-      <div style={{ display: 'flex', gap: 8 }}>
-        <div className="userbox" style={{ flex: 1 }} onClick={() => onNav('mypage')}>
-          <div className="av">{(nickname || '?').slice(0, 2)}</div>
-          <div>
-            <div className="nm">{nickname}</div>
-            <div className="em">{email}</div>
-          </div>
+      <div className="userbox" onClick={() => onNav('mypage')}>
+        <div className="av">{(nickname || '?').slice(0, 2)}</div>
+        <div className="user-meta">
+          <div className="nm">{nickname}</div>
+          <div className="em">{email}</div>
         </div>
-        <button className="iconbtn" title="로그아웃" onClick={onLogout}>
+        <button
+          type="button"
+          className="iconbtn user-logout"
+          title="로그아웃"
+          aria-label="로그아웃"
+          onClick={(event) => {
+            event.stopPropagation();
+            onLogout();
+          }}
+        >
           <Icon size={16}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><path d="M16 17l5-5-5-5" /><path d="M21 12H9" /></Icon>
         </button>
       </div>

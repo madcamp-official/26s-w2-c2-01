@@ -153,7 +153,7 @@ export default function BriefingPage({
     <div className="maxw">
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 4 }}>
         <p className="hint2" style={{ fontSize: 13, margin: 0 }}>안 본 사이 있었던 일만 간단히 정리했습니다. 장시작·장중·장마감·휴장 중 하루 4번 자동으로 갱신됩니다.</p>
-        <span className="hint2" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, margin: 0, whiteSpace: 'nowrap' }}>
+        <span className="hint2" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, margin: 0, marginLeft: 'auto', whiteSpace: 'nowrap' }}>
           <Icon size={14}><path d="M4 4v6h6M20 20v-6h-6" /><path d="M20 8a8 8 0 0 0-14.9-3M4 16a8 8 0 0 0 14.9 3" /></Icon>
           새로고침
         </span>
