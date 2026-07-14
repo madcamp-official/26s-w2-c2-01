@@ -5,7 +5,15 @@ daily_briefings 테이블 컬럼(DB스키마.md 2-7)에 맞춰 정리한 것.
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+
+def _validate_complete_one_line_summary(value: str) -> str:
+    if "\n" in value or "\r" in value:
+        raise ValueError("one_line_summary must not contain line breaks")
+    if not value.endswith((".", "!", "?")):
+        raise ValueError("one_line_summary must end with sentence punctuation")
+    return value
 
 
 class FactItem(BaseModel):
@@ -49,7 +57,7 @@ class BriefingRender(BaseModel):
     """2단계 · 성향 렌더링 결과. daily_briefings 테이블에 그대로 저장된다."""
 
     summary: str
-    one_line_summary: str = Field(min_length=1, max_length=30)
+    one_line_summary: str = Field(min_length=30, max_length=40)
     sentiment: Literal["positive", "neutral", "negative"]
     positive_factors: list[str] = []
     negative_factors: list[str] = []
@@ -57,6 +65,10 @@ class BriefingRender(BaseModel):
     reasons: list[ReasonItem] = []
     today_actions: list[str] = []
     disclaimer: str = "본 브리핑은 정보 제공 목적이며 투자 권유가 아닙니다."
+
+    _validate_one_line_summary = field_validator("one_line_summary")(
+        _validate_complete_one_line_summary
+    )
 
 
 class MarketOverviewRender(BaseModel):
@@ -69,6 +81,7 @@ class MarketOverviewRender(BaseModel):
     """
 
     summary: str
+    one_line_summary: str = Field(min_length=30, max_length=40)
     sentiment: Literal["positive", "neutral", "negative"]
     positive_factors: list[str] = []
     negative_factors: list[str] = []
@@ -80,3 +93,7 @@ class MarketOverviewRender(BaseModel):
     indices: list[MarketMoveItem] = []
     sector_moves: list[MarketMoveItem] = []
     disclaimer: str = "본 브리핑은 정보 제공 목적이며 투자 권유가 아닙니다."
+
+    _validate_one_line_summary = field_validator("one_line_summary")(
+        _validate_complete_one_line_summary
+    )

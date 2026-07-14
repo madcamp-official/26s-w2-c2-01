@@ -60,6 +60,15 @@ function CitationList({ reasons }) {
   );
 }
 
+function OneLineSummary({ value }) {
+  if (!value) return null;
+  return (
+    <p style={{ fontSize: 13.5, color: 'var(--t1)', lineHeight: 1.7, marginBottom: 8 }}>
+      <strong>한 줄 요약:</strong> {value}
+    </p>
+  );
+}
+
 function TodaySessionTabs({ sessions, selected, onSelect, getUpdatedAt }) {
   return (
     <div className="session-tabs" aria-label="오늘의 장 세션">
@@ -104,6 +113,7 @@ function BriefingBlock({ row }) {
           ))}
         </div>
       )}
+      <OneLineSummary value={row.one_line_summary} />
       {row.summary && <p style={{ fontSize: 13.5, color: 'var(--t2)', lineHeight: 1.7 }}>{row.summary}</p>}
       <div className="factgrid">
         {row.positive_factors?.length > 0 && (
@@ -320,6 +330,7 @@ export default function BriefingDetailPage({
                   ))}
                 </div>
               )}
+              <OneLineSummary value={marketOverview.one_line_summary} />
               <p style={{ fontSize: 13.5, color: 'var(--t2)', lineHeight: 1.7 }}>{marketOverview.summary}</p>
               <div className="factgrid">
                 {marketOverview.positive_factors?.length > 0 && (
@@ -391,6 +402,7 @@ export default function BriefingDetailPage({
 
           {b ? (
             <>
+              <OneLineSummary value={b.one_line_summary} />
               {b.summary && <p style={{ fontSize: 13.5, color: 'var(--t2)', lineHeight: 1.7 }}>{b.summary}</p>}
               <div className="factgrid">
                 {b.positive_factors?.length > 0 && (
@@ -462,6 +474,7 @@ export default function BriefingDetailPage({
 
         {b ? (
           <>
+            <OneLineSummary value={b.one_line_summary} />
             {b.summary && <p style={{ fontSize: 13.5, color: 'var(--t2)', lineHeight: 1.7 }}>{b.summary}</p>}
             <div className="factgrid">
               {b.positive_factors?.length > 0 && (

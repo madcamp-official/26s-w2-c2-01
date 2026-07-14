@@ -48,6 +48,7 @@ def _apply_render(briefing: SectorBriefing, render: BriefingRender, model_name: 
     render = sanitize_briefing_render(render)
     briefing.sentiment = render.sentiment
     briefing.summary = render.summary
+    briefing.one_line_summary = render.one_line_summary
     briefing.positive_factors = render.positive_factors
     briefing.negative_factors = render.negative_factors
     briefing.watch_issues = render.watch_issues
@@ -74,7 +75,12 @@ def generate_sector_briefing(
             SectorBriefing.briefing_session == briefing_session,
         )
     )
-    if cached and not force and is_fresh(db, cached.generated_at, settings.REFRESH_INTERVAL_HOURS):
+    if (
+        cached
+        and cached.one_line_summary
+        and not force
+        and is_fresh(db, cached.generated_at, settings.REFRESH_INTERVAL_HOURS)
+    ):
         return cached
 
     sector = db.get(Sector, sector_id)

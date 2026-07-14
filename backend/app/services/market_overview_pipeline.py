@@ -107,6 +107,7 @@ def _fetch_market_news() -> list[dict]:
 def _apply_render(overview: MarketOverview, render: MarketOverviewRender, model_name: str) -> None:
     render = sanitize_market_overview_render(render)
     overview.summary = render.summary
+    overview.one_line_summary = render.one_line_summary
     overview.sentiment = render.sentiment
     overview.positive_factors = render.positive_factors
     overview.negative_factors = render.negative_factors
@@ -131,7 +132,12 @@ def generate_market_overview(
         MarketOverview.briefing_date == briefing_date,
         MarketOverview.briefing_session == briefing_session,
     ))
-    if cached and not force and is_fresh(db, cached.generated_at, settings.REFRESH_INTERVAL_HOURS):
+    if (
+        cached
+        and cached.one_line_summary
+        and not force
+        and is_fresh(db, cached.generated_at, settings.REFRESH_INTERVAL_HOURS)
+    ):
         return cached
 
     news = _fetch_market_news()

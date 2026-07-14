@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from app.services.llm.claude_client import RENDER_SYSTEM_PROMPT
+from app.services.llm.claude_client import MARKET_SYSTEM_PROMPT, RENDER_SYSTEM_PROMPT
 
 
 class LlmPromptTest(TestCase):
@@ -21,5 +21,7 @@ class LlmPromptTest(TestCase):
 
         self.assertIn("source_url 필드에만", RENDER_SYSTEM_PROMPT)
         self.assertIn("source_url이 없는 내용은 reasons 항목으로 만들지 않는다", RENDER_SYSTEM_PROMPT)
-        self.assertIn("30자 이내", RENDER_SYSTEM_PROMPT)
-        self.assertIn("문장을 중간에서 자르거나", RENDER_SYSTEM_PROMPT)
+        self.assertIn("30자 이상 40자 이하", RENDER_SYSTEM_PROMPT)
+        self.assertIn("중간에서 자르거나", RENDER_SYSTEM_PROMPT)
+        self.assertIn("one_line_summary", MARKET_SYSTEM_PROMPT)
+        self.assertIn("30자 이상 40자 이하", MARKET_SYSTEM_PROMPT)

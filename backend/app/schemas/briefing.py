@@ -31,6 +31,7 @@ class MarketOverviewRead(BaseModel):
     briefing_session: Literal["market_open", "intraday", "market_close", "after_hours", "additional"]
     sentiment: Literal["positive", "neutral", "negative"] | None
     summary: str | None
+    one_line_summary: str | None
     positive_factors: list
     negative_factors: list
     watch_issues: list
@@ -57,6 +58,7 @@ class SectorBriefingRead(BaseModel):
     briefing_session: Literal["market_open", "intraday", "market_close", "after_hours", "additional"]
     sentiment: Literal["positive", "neutral", "negative"] | None
     summary: str | None
+    one_line_summary: str | None
     positive_factors: list
     negative_factors: list
     watch_issues: list

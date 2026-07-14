@@ -13,7 +13,7 @@ class DailyBriefing(Base):
     __table_args__ = (
         CheckConstraint("sentiment IN ('positive','neutral','negative')", name="ck_daily_briefings_sentiment"),
         CheckConstraint(
-            "char_length(one_line_summary) <= 30",
+            "char_length(one_line_summary) BETWEEN 30 AND 40",
             name="ck_daily_briefings_one_line_summary_length",
         ),
         UniqueConstraint("ticker", "briefing_date", "briefing_session", name="uq_daily_briefings_ticker_date_session"),
@@ -49,6 +49,10 @@ class SectorBriefing(Base):
     __tablename__ = "sector_briefings"
     __table_args__ = (
         CheckConstraint("sentiment IN ('positive','neutral','negative')", name="ck_sector_briefings_sentiment"),
+        CheckConstraint(
+            "char_length(one_line_summary) BETWEEN 30 AND 40",
+            name="ck_sector_briefings_one_line_summary_length",
+        ),
         UniqueConstraint("sector_id", "briefing_date", "briefing_session", name="uq_sector_briefings_sector_date_session"),
     )
 
@@ -60,6 +64,7 @@ class SectorBriefing(Base):
     briefing_session: Mapped[str] = mapped_column(String(20), nullable=False, default="additional")
     sentiment: Mapped[str | None] = mapped_column(String(10), nullable=True)
     summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    one_line_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     positive_factors: Mapped[list] = mapped_column(JSONB, default=list)
     negative_factors: Mapped[list] = mapped_column(JSONB, default=list)
     watch_issues: Mapped[list] = mapped_column(JSONB, default=list)
@@ -73,6 +78,10 @@ class MarketOverview(Base):
     __tablename__ = "market_overviews"
     __table_args__ = (
         CheckConstraint("sentiment IN ('positive','neutral','negative')", name="ck_market_overviews_sentiment"),
+        CheckConstraint(
+            "char_length(one_line_summary) BETWEEN 30 AND 40",
+            name="ck_market_overviews_one_line_summary_length",
+        ),
         UniqueConstraint("briefing_date", "briefing_session", name="uq_market_overviews_date_session"),
     )
 
@@ -81,6 +90,7 @@ class MarketOverview(Base):
     briefing_session: Mapped[str] = mapped_column(String(20), nullable=False, default="additional")
     sentiment: Mapped[str | None] = mapped_column(String(10), nullable=True)
     summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    one_line_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     positive_factors: Mapped[list] = mapped_column(JSONB, default=list)
     negative_factors: Mapped[list] = mapped_column(JSONB, default=list)
     watch_issues: Mapped[list] = mapped_column(JSONB, default=list)

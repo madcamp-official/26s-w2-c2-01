@@ -43,7 +43,7 @@ class StubBriefingLLMClient(BriefingLLMClient):
         tickers = facts.entities or ["종목"]
         ticker_label = ", ".join(tickers)
         return BriefingRender(
-            one_line_summary="핵심 이슈와 변동 요인을 확인해 주세요.",
+            one_line_summary="핵심 이슈와 변동 요인을 종합적으로 확인할 필요가 있습니다.",
             summary=(
                 f"[스텁 브리핑] {ticker_label} 관련 실제 LLM 호출 없이 생성된 더미 요약입니다. "
                 f"성향: {preset_persona[:30] if preset_persona else '기본'}..."
@@ -59,6 +59,7 @@ class StubBriefingLLMClient(BriefingLLMClient):
 
     def render_market_overview(self, *, facts: FactsExtraction) -> MarketOverviewRender:
         return MarketOverviewRender(
+            one_line_summary="시장 핵심 이슈와 주요 변동 요인을 종합적으로 확인해야 합니다.",
             summary="[스텁 시황] 실제 LLM 호출 없이 생성된 더미 전체 시황 요약입니다.",
             sentiment="neutral",
             positive_factors=[],

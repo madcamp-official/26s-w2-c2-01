@@ -7,7 +7,7 @@ from app.services.briefing_sanitizer import sanitize_briefing_render
 class BriefingSanitizerTest(TestCase):
     def test_urls_are_removed_from_visible_text_but_kept_as_citation(self) -> None:
         render = BriefingRender(
-            one_line_summary="한 줄 요약 https://example.com/raw",
+            one_line_summary="핵심 이슈와 변동 요인을 종합적으로 확인할 필요가 있습니다.",
             summary="요약 https://example.com/raw",
             sentiment="neutral",
             positive_factors=["[실적 개선](https://example.com/markdown)"],
@@ -30,7 +30,7 @@ class BriefingSanitizerTest(TestCase):
 
     def test_reason_without_source_url_is_removed(self) -> None:
         render = BriefingRender(
-            one_line_summary="한 줄 요약",
+            one_line_summary="핵심 이슈와 변동 요인을 종합적으로 확인할 필요가 있습니다.",
             summary="요약",
             sentiment="neutral",
             reasons=[
