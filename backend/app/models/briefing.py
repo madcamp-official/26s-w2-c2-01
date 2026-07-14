@@ -12,7 +12,7 @@ class DailyBriefing(Base):
     __tablename__ = "daily_briefings"
     __table_args__ = (
         CheckConstraint("sentiment IN ('positive','neutral','negative')", name="ck_daily_briefings_sentiment"),
-        UniqueConstraint("ticker", "briefing_date", name="uq_daily_briefings_ticker_date"),
+        UniqueConstraint("ticker", "briefing_date", "briefing_session", name="uq_daily_briefings_ticker_date_session"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
@@ -20,6 +20,7 @@ class DailyBriefing(Base):
         String(10), ForeignKey("stocks.ticker", ondelete="CASCADE"), nullable=False, index=True
     )
     briefing_date: Mapped[date] = mapped_column(Date, nullable=False)
+    briefing_session: Mapped[str] = mapped_column(String(20), nullable=False, default="after_hours")
     sentiment: Mapped[str | None] = mapped_column(String(10), nullable=True)
     summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     positive_factors: Mapped[list] = mapped_column(JSONB, default=list)
@@ -43,7 +44,7 @@ class SectorBriefing(Base):
     __tablename__ = "sector_briefings"
     __table_args__ = (
         CheckConstraint("sentiment IN ('positive','neutral','negative')", name="ck_sector_briefings_sentiment"),
-        UniqueConstraint("sector_id", "briefing_date", name="uq_sector_briefings_sector_date"),
+        UniqueConstraint("sector_id", "briefing_date", "briefing_session", name="uq_sector_briefings_sector_date_session"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
@@ -51,6 +52,7 @@ class SectorBriefing(Base):
         Integer, ForeignKey("sectors.id", ondelete="CASCADE"), nullable=False, index=True
     )
     briefing_date: Mapped[date] = mapped_column(Date, nullable=False)
+    briefing_session: Mapped[str] = mapped_column(String(20), nullable=False, default="after_hours")
     sentiment: Mapped[str | None] = mapped_column(String(10), nullable=True)
     summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     positive_factors: Mapped[list] = mapped_column(JSONB, default=list)
@@ -66,10 +68,12 @@ class MarketOverview(Base):
     __tablename__ = "market_overviews"
     __table_args__ = (
         CheckConstraint("sentiment IN ('positive','neutral','negative')", name="ck_market_overviews_sentiment"),
+        UniqueConstraint("briefing_date", "briefing_session", name="uq_market_overviews_date_session"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    briefing_date: Mapped[date] = mapped_column(Date, unique=True, nullable=False)
+    briefing_date: Mapped[date] = mapped_column(Date, nullable=False)
+    briefing_session: Mapped[str] = mapped_column(String(20), nullable=False, default="after_hours")
     sentiment: Mapped[str | None] = mapped_column(String(10), nullable=True)
     summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     positive_factors: Mapped[list] = mapped_column(JSONB, default=list)

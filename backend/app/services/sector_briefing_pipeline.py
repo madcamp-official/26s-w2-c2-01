@@ -26,6 +26,7 @@ from app.models.stock import Stock
 from app.schemas.llm import BriefingRender
 from app.services.freshness import is_fresh
 from app.services.llm import get_llm_client
+from app.services.market_sessions import BriefingSession, current_briefing_date, current_session
 
 
 def _build_document_text(articles: list[NewsArticle]) -> str:
@@ -60,12 +61,16 @@ def generate_sector_briefing(
     briefing_date: date | None = None,
     news_lookback_days: int = 2,
     force: bool = False,
+    briefing_session: BriefingSession | None = None,
 ) -> SectorBriefing:
-    briefing_date = briefing_date or date.today()
+    briefing_date = briefing_date or current_briefing_date()
+    briefing_session = briefing_session or current_session(briefing_date)
 
     cached = db.scalar(
         select(SectorBriefing).where(
-            SectorBriefing.sector_id == sector_id, SectorBriefing.briefing_date == briefing_date
+            SectorBriefing.sector_id == sector_id,
+            SectorBriefing.briefing_date == briefing_date,
+            SectorBriefing.briefing_session == briefing_session,
         )
     )
     if cached and not force and is_fresh(db, cached.generated_at, settings.REFRESH_INTERVAL_HOURS):
@@ -110,7 +115,9 @@ def generate_sector_briefing(
         db.refresh(cached)
         return cached
 
-    briefing = SectorBriefing(sector_id=sector_id, briefing_date=briefing_date)
+    briefing = SectorBriefing(
+        sector_id=sector_id, briefing_date=briefing_date, briefing_session=briefing_session
+    )
     _apply_render(briefing, render, llm.model_name)
     db.add(briefing)
     try:
@@ -119,7 +126,9 @@ def generate_sector_briefing(
         db.rollback()
         existing = db.scalar(
             select(SectorBriefing).where(
-                SectorBriefing.sector_id == sector_id, SectorBriefing.briefing_date == briefing_date
+                SectorBriefing.sector_id == sector_id,
+                SectorBriefing.briefing_date == briefing_date,
+                SectorBriefing.briefing_session == briefing_session,
             )
         )
         if existing:

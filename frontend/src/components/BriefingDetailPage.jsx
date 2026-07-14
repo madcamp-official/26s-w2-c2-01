@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { SENT_LABEL } from '../data.js';
 import Icon from './Icon.jsx';
 
@@ -6,6 +7,40 @@ function DetailTimeTabs({ timeMode, setTimeMode }) {
     <div className="ptabs">
       <button className={timeMode === 'today' ? 'on' : ''} onClick={() => setTimeMode('today')}>오늘</button>
       <button className={timeMode === 'history' ? 'on' : ''} onClick={() => setTimeMode('history')}>이전 기록</button>
+    </div>
+  );
+}
+
+function formatUpdateTime(value) {
+  if (!value) return null;
+  // PostgreSQL의 timestamp without time zone은 배포 DB에서 UTC로 저장된다.
+  const normalized = typeof value === 'string' && !/(Z|[+-]\d{2}:\d{2})$/.test(value)
+    ? `${value}Z`
+    : value;
+  return new Intl.DateTimeFormat('ko-KR', {
+    timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit', hour12: false,
+  }).format(new Date(normalized));
+}
+
+function TodaySessionTabs({ sessions, selected, onSelect, getUpdatedAt }) {
+  return (
+    <div className="session-tabs" aria-label="오늘의 장 세션">
+      {[...sessions].reverse().map((session) => {
+        const updatedAt = getUpdatedAt(session.key);
+        const time = formatUpdateTime(updatedAt || session.scheduled_at);
+        return (
+          <button
+            key={session.key}
+            type="button"
+            className={selected === session.key ? 'on' : ''}
+            disabled={!session.available}
+            onClick={() => onSelect(session.key)}
+          >
+            <span>{session.label}</span>
+            <small>{session.available ? (updatedAt ? `${time} 업데이트` : '업데이트 대기') : `${time} 예정`}</small>
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -20,7 +55,7 @@ function HistoryList({ rows, loading, error, emptyLabel }) {
       {rows.map((row) => {
         const [label, className] = row.sentiment ? SENT_LABEL[row.sentiment] : [null, null];
         return (
-          <div className="block" key={`${row.briefing_date}-${row.ticker ?? row.sector_id}`}>
+          <div className="block" key={`${row.briefing_date}-${row.briefing_session}-${row.ticker ?? row.sector_id ?? 'overview'}`}>
             <div className="block-h">
               <h2 style={{ fontSize: 15 }}>{row.briefing_date}</h2>
               {label && <span className={`tag ${className}`} style={{ marginLeft: 'auto' }}>{label}</span>}
@@ -71,13 +106,30 @@ function HistoryList({ rows, loading, error, emptyLabel }) {
 export default function BriefingDetailPage({
   detail, stocks, watch, onBack, onOpenLens, onToggleWatch,
   timeMode, setTimeMode,
-  briefingByTicker, missingTickers, marketOverview,
+  briefingByTicker, missingTickers, marketOverview: latestMarketOverview,
+  marketOverviews = [], briefingSessions = [], briefingDate, stockBriefings = [],
   sectorsById, sectorWatch, onOpenSectorLens, onToggleSectorWatch,
-  sectorBriefingBySectorId, missingSectorIds,
+  sectorBriefingBySectorId, sectorBriefings = [], missingSectorIds,
   history, historyLoading, historyError,
   overviewHistory, overviewHistoryLoading, overviewHistoryError,
   sectorHistory, sectorHistoryLoading, sectorHistoryError,
 }) {
+  const latestAvailableSession = [...briefingSessions].reverse().find((item) => item.available)?.key ?? null;
+  const [selectedSession, setSelectedSession] = useState(latestAvailableSession);
+
+  useEffect(() => {
+    setSelectedSession(latestAvailableSession);
+  }, [briefingDate, detail?.type, detail?.ticker, detail?.sectorId, latestAvailableSession]);
+
+  const SessionTabs = ({ rows }) => (
+    <TodaySessionTabs
+      sessions={briefingSessions}
+      selected={selectedSession}
+      onSelect={setSelectedSession}
+      getUpdatedAt={(key) => rows.find((row) => row.briefing_session === key)?.generated_at}
+    />
+  );
+
   if (!detail) {
     return (
       <div className="maxw">
@@ -93,6 +145,9 @@ export default function BriefingDetailPage({
   );
 
   if (detail.type === 'overview') {
+    const marketOverview = marketOverviews.find(
+      (row) => row.briefing_session === selectedSession
+    ) ?? (selectedSession === latestAvailableSession ? latestMarketOverview : null);
     const indexEntries = marketOverview?.indices ? Object.entries(marketOverview.indices) : [];
     const sectorMoveEntries = marketOverview?.sector_moves ? Object.entries(marketOverview.sector_moves) : [];
     const [overviewLabel, overviewClass] = marketOverview?.sentiment
@@ -105,6 +160,7 @@ export default function BriefingDetailPage({
       <div className="maxw">
         {BackLink}
         <DetailTimeTabs timeMode={timeMode} setTimeMode={setTimeMode} />
+        {timeMode === 'today' && <SessionTabs rows={marketOverviews} />}
         {timeMode === 'today' ? (
           <div className="block">
           <div className="block-h">
@@ -180,7 +236,9 @@ export default function BriefingDetailPage({
     if (!sector) {
       return <div className="maxw">{BackLink}섹터 정보를 찾을 수 없습니다.</div>;
     }
-    const b = sectorBriefingBySectorId[sectorId];
+    const sectorRows = sectorBriefings.filter((row) => row.sector_id === sectorId);
+    const b = sectorRows.find((row) => row.briefing_session === selectedSession)
+      ?? (selectedSession === latestAvailableSession ? sectorBriefingBySectorId[sectorId] : null);
     const inWatch = sectorWatch.includes(sectorId);
     const [lbl, cls] = b?.sentiment ? SENT_LABEL[b.sentiment] : [null, null];
     const previousBriefings = sectorHistory.filter(
@@ -191,6 +249,7 @@ export default function BriefingDetailPage({
       <div className="maxw">
         {BackLink}
         <DetailTimeTabs timeMode={timeMode} setTimeMode={setTimeMode} />
+        {timeMode === 'today' && <SessionTabs rows={sectorRows} />}
         {timeMode === 'today' ? (
           <div className="block">
           <div className="block-h">
@@ -261,7 +320,9 @@ export default function BriefingDetailPage({
   if (!s) {
     return <div className="maxw">{BackLink}종목 정보를 찾을 수 없습니다.</div>;
   }
-  const b = briefingByTicker[t];
+  const stockRows = stockBriefings.filter((row) => row.ticker === t);
+  const b = stockRows.find((row) => row.briefing_session === selectedSession)
+    ?? (selectedSession === latestAvailableSession ? briefingByTicker[t] : null);
   const inWatch = watch.includes(t);
   const [lbl, cls] = b?.sentiment ? SENT_LABEL[b.sentiment] : [null, null];
   const previousBriefings = history.filter(
@@ -272,6 +333,7 @@ export default function BriefingDetailPage({
     <div className="maxw">
       {BackLink}
       <DetailTimeTabs timeMode={timeMode} setTimeMode={setTimeMode} />
+      {timeMode === 'today' && <SessionTabs rows={stockRows} />}
       {timeMode === 'today' ? (
         <div className="block">
         <div className="block-h">

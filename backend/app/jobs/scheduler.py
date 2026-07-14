@@ -10,13 +10,12 @@ run_watchlist_refresh_cycle()이 별도로 담당한다.
 """
 
 import sys
-from datetime import date
-
 from app.batch.collect_news import FinnhubNotConfigured
 from app.batch.collect_news import run as collect_news_run
 from app.db.session import SessionLocal
 from app.jobs import generate_briefings, generate_sector_briefings
 from app.services.market_overview_pipeline import generate_market_overview
+from app.services.market_sessions import current_briefing_date, current_session
 
 # Windows 콘솔(cp949) 인코딩 대비 — collect_news.py와 동일한 이유.
 for _stream in (sys.stdout, sys.stderr):
@@ -44,11 +43,15 @@ def run_watchlist_refresh_cycle() -> None:
 
 def run_refresh_cycle() -> None:
     _collect_news("정기 갱신")
+    briefing_date = current_briefing_date()
+    briefing_session = current_session(briefing_date)
 
     print("=== 정기 갱신: 전체 시황 재생성 ===")
     db = SessionLocal()
     try:
-        overview = generate_market_overview(db, briefing_date=date.today())
+        overview = generate_market_overview(
+            db, briefing_date=briefing_date, briefing_session=briefing_session
+        )
         print(f"전체 시황 갱신 완료 (model={overview.model}, generated_at={overview.generated_at})")
     except Exception as e:  # noqa: BLE001 - 실패해도 종목 브리핑 갱신은 계속 진행
         print(f"전체 시황 갱신 실패: {e}")
@@ -57,6 +60,8 @@ def run_refresh_cycle() -> None:
 
     print("=== 정기 갱신: 섹터 브리핑 재생성 ===")
     generate_sector_briefings.run()
+    print("=== 정기 갱신: 관심종목 브리핑 재생성 ===")
+    generate_briefings.run()
     print("=== 정기 갱신 완료 ===")
 
 

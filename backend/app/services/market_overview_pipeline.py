@@ -23,6 +23,7 @@ from app.schemas.llm import FactItem, FactsExtraction, MarketOverviewRender
 from app.services.finnhub_client import FinnhubClient, FinnhubError
 from app.services.freshness import is_fresh
 from app.services.llm import get_llm_client
+from app.services.market_sessions import BriefingSession, current_briefing_date, current_session
 
 
 def _facts_from_general_news(articles: list[dict], limit: int = 12) -> FactsExtraction:
@@ -76,10 +77,19 @@ def _apply_render(overview: MarketOverview, render: MarketOverviewRender, model_
     overview.model = model_name
 
 
-def generate_market_overview(db: Session, briefing_date: date | None = None, force: bool = False) -> MarketOverview:
-    briefing_date = briefing_date or date.today()
+def generate_market_overview(
+    db: Session,
+    briefing_date: date | None = None,
+    force: bool = False,
+    briefing_session: BriefingSession | None = None,
+) -> MarketOverview:
+    briefing_date = briefing_date or current_briefing_date()
+    briefing_session = briefing_session or current_session(briefing_date)
 
-    cached = db.scalar(select(MarketOverview).where(MarketOverview.briefing_date == briefing_date))
+    cached = db.scalar(select(MarketOverview).where(
+        MarketOverview.briefing_date == briefing_date,
+        MarketOverview.briefing_session == briefing_session,
+    ))
     if cached and not force and is_fresh(db, cached.generated_at, settings.REFRESH_INTERVAL_HOURS):
         return cached
 
@@ -95,7 +105,7 @@ def generate_market_overview(db: Session, briefing_date: date | None = None, for
         db.refresh(cached)
         return cached
 
-    overview = MarketOverview(briefing_date=briefing_date)
+    overview = MarketOverview(briefing_date=briefing_date, briefing_session=briefing_session)
     _apply_render(overview, render, llm.model_name)
     db.add(overview)
     try:
@@ -103,7 +113,10 @@ def generate_market_overview(db: Session, briefing_date: date | None = None, for
     except IntegrityError:
         # 같은 briefing_date를 동시에 처음 생성하려던 다른 트랜잭션이 먼저 커밋한 경우.
         db.rollback()
-        existing = db.scalar(select(MarketOverview).where(MarketOverview.briefing_date == briefing_date))
+        existing = db.scalar(select(MarketOverview).where(
+            MarketOverview.briefing_date == briefing_date,
+            MarketOverview.briefing_session == briefing_session,
+        ))
         if existing:
             return existing
         raise

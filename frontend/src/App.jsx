@@ -236,7 +236,12 @@ export default function App() {
       const updated = await refreshStockBriefing(ticker);
       setBriefing((prev) => ({
         ...prev,
-        stocks: [...(prev?.stocks ?? []).filter((item) => item.ticker !== ticker), updated],
+        stocks: [
+          ...(prev?.stocks ?? []).filter((item) => !(
+            item.ticker === ticker && item.briefing_session === updated.briefing_session
+          )),
+          updated,
+        ],
         missing_tickers: (prev?.missing_tickers ?? []).filter((item) => item !== ticker),
       }));
     } catch (err) {
@@ -254,7 +259,9 @@ export default function App() {
       setBriefing((prev) => ({
         ...prev,
         sector_briefings: [
-          ...(prev?.sector_briefings ?? []).filter((item) => item.sector_id !== sectorId),
+          ...(prev?.sector_briefings ?? []).filter((item) => !(
+            item.sector_id === sectorId && item.briefing_session === updated.briefing_session
+          )),
           updated,
         ],
         missing_sectors: (prev?.missing_sectors ?? []).filter((item) => item !== sectorId),
@@ -271,7 +278,16 @@ export default function App() {
     setRefreshingOverview(true);
     try {
       const updated = await refreshMarketOverview();
-      setBriefing((prev) => ({ ...prev, market_overview: updated }));
+      setBriefing((prev) => ({
+        ...prev,
+        market_overview: updated,
+        market_overviews: [
+          ...(prev?.market_overviews ?? []).filter(
+            (item) => item.briefing_session !== updated.briefing_session
+          ),
+          updated,
+        ],
+      }));
     } catch (err) {
       setBriefingActionError(err instanceof ApiError ? err.detail : '전체 시황 새로고침에 실패했습니다.');
     } finally {
@@ -633,11 +649,16 @@ export default function App() {
                   briefingByTicker={briefingByTicker}
                   missingTickers={missingTickers}
                   marketOverview={briefing?.market_overview ?? null}
+                  marketOverviews={briefing?.market_overviews ?? []}
+                  briefingSessions={briefing?.sessions ?? []}
+                  briefingDate={briefing?.briefing_date ?? null}
+                  stockBriefings={briefing?.stocks ?? []}
                   sectorsById={sectorsById}
                   sectorWatch={sectorWatch}
                   onOpenSectorLens={openSectorLens}
                   onToggleSectorWatch={handleToggleSectorWatch}
                   sectorBriefingBySectorId={sectorBriefingBySectorId}
+                  sectorBriefings={briefing?.sector_briefings ?? []}
                   missingSectorIds={missingSectorIds}
                   history={history}
                   historyLoading={historyLoading}
