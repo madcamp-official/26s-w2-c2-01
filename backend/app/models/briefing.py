@@ -20,7 +20,7 @@ class DailyBriefing(Base):
         String(10), ForeignKey("stocks.ticker", ondelete="CASCADE"), nullable=False, index=True
     )
     briefing_date: Mapped[date] = mapped_column(Date, nullable=False)
-    briefing_session: Mapped[str] = mapped_column(String(20), nullable=False, default="after_hours")
+    briefing_session: Mapped[str] = mapped_column(String(20), nullable=False, default="additional")
     sentiment: Mapped[str | None] = mapped_column(String(10), nullable=True)
     summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     positive_factors: Mapped[list] = mapped_column(JSONB, default=list)
@@ -52,7 +52,7 @@ class SectorBriefing(Base):
         Integer, ForeignKey("sectors.id", ondelete="CASCADE"), nullable=False, index=True
     )
     briefing_date: Mapped[date] = mapped_column(Date, nullable=False)
-    briefing_session: Mapped[str] = mapped_column(String(20), nullable=False, default="after_hours")
+    briefing_session: Mapped[str] = mapped_column(String(20), nullable=False, default="additional")
     sentiment: Mapped[str | None] = mapped_column(String(10), nullable=True)
     summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     positive_factors: Mapped[list] = mapped_column(JSONB, default=list)
@@ -73,7 +73,7 @@ class MarketOverview(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     briefing_date: Mapped[date] = mapped_column(Date, nullable=False)
-    briefing_session: Mapped[str] = mapped_column(String(20), nullable=False, default="after_hours")
+    briefing_session: Mapped[str] = mapped_column(String(20), nullable=False, default="additional")
     sentiment: Mapped[str | None] = mapped_column(String(10), nullable=True)
     summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     positive_factors: Mapped[list] = mapped_column(JSONB, default=list)

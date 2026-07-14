@@ -10,7 +10,7 @@ class DailyBriefingRead(BaseModel):
     id: int
     ticker: str
     briefing_date: date
-    briefing_session: Literal["market_open", "intraday", "market_close", "after_hours"]
+    briefing_session: Literal["market_open", "intraday", "market_close", "after_hours", "additional"]
     sentiment: Literal["positive", "neutral", "negative"] | None
     summary: str | None
     positive_factors: list
@@ -27,7 +27,7 @@ class MarketOverviewRead(BaseModel):
 
     id: int
     briefing_date: date
-    briefing_session: Literal["market_open", "intraday", "market_close", "after_hours"]
+    briefing_session: Literal["market_open", "intraday", "market_close", "after_hours", "additional"]
     sentiment: Literal["positive", "neutral", "negative"] | None
     summary: str | None
     positive_factors: list
@@ -53,7 +53,7 @@ class SectorBriefingRead(BaseModel):
     id: int
     sector_id: int
     briefing_date: date
-    briefing_session: Literal["market_open", "intraday", "market_close", "after_hours"]
+    briefing_session: Literal["market_open", "intraday", "market_close", "after_hours", "additional"]
     sentiment: Literal["positive", "neutral", "negative"] | None
     summary: str | None
     positive_factors: list

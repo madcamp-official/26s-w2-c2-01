@@ -45,7 +45,7 @@ def _run_market_overview_refresh(job_id: str) -> None:
     """HTTP 응답과 분리된 스레드에서 전체 시황을 생성해 Cloudflare 524를 피한다."""
     db = SessionLocal()
     try:
-        generate_market_overview(db, force=True)
+        generate_market_overview(db, force=True, briefing_session="additional")
     except Exception as exc:  # noqa: BLE001 - 작업 상태로 전달하고 API 프로세스는 유지
         db.rollback()
         print(f"전체 시황 백그라운드 새로고침 실패: {exc}")
@@ -69,9 +69,11 @@ def _run_market_overview_refresh(job_id: str) -> None:
 @router.get("/today", response_model=TodayBriefingResponse)
 def today_briefing(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """
-    관심 종목별 오늘자 브리핑 + 전체 시황을 반환한다. 캐시에 없거나
-    REFRESH_INTERVAL_HOURS보다 오래됐으면 이 요청 안에서 온디맨드로 생성해
-    채운다 (기획서.md 7-1절 "on-demand 보완").
+    관심 종목별 오늘자 브리핑 + 전체 시황을 조회만 한다.
+
+    정기 세션 생성은 스케줄러가, 사용자가 요청한 추가 생성은 refresh API가
+    담당한다. 화면 조회가 브리핑을 암묵적으로 생성하면 ENABLE_SCHEDULER=False
+    상태에서도 현재 시간대 브리핑이 생기므로 이 엔드포인트에서는 생성하지 않는다.
     """
     today = current_briefing_date()
     active_session = current_session(today)
@@ -88,14 +90,7 @@ def today_briefing(current_user: User = Depends(get_current_user), db: Session =
     found_tickers = {b.ticker for b in briefings if b.briefing_session == active_session}
     missing_tickers = [t for t in tickers if t not in found_tickers]
 
-    still_missing: list[str] = []
-    for ticker in missing_tickers:
-        try:
-            briefings.append(generate_daily_briefing(
-                db, ticker, briefing_date=today, briefing_session=active_session
-            ))
-        except ValueError:
-            still_missing.append(ticker)
+    still_missing = missing_tickers
 
     sector_watchlist = list_sector_watchlist(db, current_user.id)
     sector_ids = [sw.sector_id for sw in sector_watchlist]
@@ -112,31 +107,17 @@ def today_briefing(current_user: User = Depends(get_current_user), db: Session =
     }
     missing_sector_ids = [sid for sid in sector_ids if sid not in found_sector_ids]
 
-    still_missing_sectors: list[int] = []
-    for sector_id in missing_sector_ids:
-        try:
-            sector_briefings.append(generate_sector_briefing(
-                db, sector_id, briefing_date=today, briefing_session=active_session
-            ))
-        except ValueError:
-            still_missing_sectors.append(sector_id)
+    still_missing_sectors = missing_sector_ids
 
-    try:
-        market_overviews = list(db.scalars(
-            select(MarketOverview).where(MarketOverview.briefing_date == today)
-        ).all())
-        if not any(item.briefing_session == active_session for item in market_overviews):
-            market_overviews.append(generate_market_overview(
-                db, briefing_date=today, briefing_session=active_session
-            ))
-    except Exception as e:  # noqa: BLE001 - 시황 생성 실패해도 종목 브리핑은 정상 반환
-        print(f"전체 시황 생성 실패: {e}")
-        market_overviews = []
+    market_overviews = list(db.scalars(
+        select(MarketOverview).where(MarketOverview.briefing_date == today)
+    ).all())
 
     current = now_kst()
     available_keys = {
         item.key for item in SESSION_DEFINITIONS if scheduled_at(today, item) <= current
     }
+    available_keys.add("additional")
     # 마이그레이션된 기존 행이나 잘못된 서버 시각 때문에 미래 세션 내용이 노출되지 않게 한다.
     briefings = [item for item in briefings if item.briefing_session in available_keys]
     sector_briefings = [
@@ -149,10 +130,17 @@ def today_briefing(current_user: User = Depends(get_current_user), db: Session =
     sector_briefings.sort(key=lambda item: session_rank(item.briefing_session))
     market_overviews.sort(key=lambda item: session_rank(item.briefing_session))
     market_overview = market_overviews[-1] if market_overviews else None
+    market_date = today - timedelta(days=1)
+    session_labels = {
+        "market_open": f"{market_date.day}일 장시작",
+        "intraday": f"{market_date.day}일 장중",
+        "market_close": f"{market_date.day}일 장마감",
+        "after_hours": f"{market_date.day}~{today.day}일 시간외",
+    }
     sessions = [
         BriefingSessionRead(
             key=item.key,
-            label=item.label,
+            label=session_labels[item.key],
             available=scheduled_at(today, item) <= current,
             scheduled_at=scheduled_at(today, item),
         )
@@ -200,7 +188,9 @@ def refresh_briefing(current_user: User = Depends(get_current_user), db: Session
     still_missing: list[str] = []
     for ticker in tickers:
         try:
-            briefings.append(generate_daily_briefing(db, ticker, briefing_date=today, force=True))
+            briefings.append(generate_daily_briefing(
+                db, ticker, briefing_date=today, force=True, briefing_session="additional"
+            ))
         except ValueError:
             still_missing.append(ticker)
 
@@ -209,12 +199,16 @@ def refresh_briefing(current_user: User = Depends(get_current_user), db: Session
     still_missing_sectors: list[int] = []
     for sector_id in sector_ids:
         try:
-            sector_briefings.append(generate_sector_briefing(db, sector_id, briefing_date=today, force=True))
+            sector_briefings.append(generate_sector_briefing(
+                db, sector_id, briefing_date=today, force=True, briefing_session="additional"
+            ))
         except ValueError:
             still_missing_sectors.append(sector_id)
 
     try:
-        market_overview = generate_market_overview(db, briefing_date=today, force=True)
+        market_overview = generate_market_overview(
+            db, briefing_date=today, force=True, briefing_session="additional"
+        )
     except Exception as e:  # noqa: BLE001 - 시황 생성 실패해도 종목 브리핑은 정상 반환
         print(f"수동 새로고침 - 전체 시황 생성 실패: {e}")
         market_overview = None
@@ -248,7 +242,7 @@ def refresh_stock_briefing(
         print(f"종목 단건 새로고침 - 뉴스 재수집 중 오류: {e}")
 
     try:
-        return generate_daily_briefing(db, ticker, force=True)
+        return generate_daily_briefing(db, ticker, force=True, briefing_session="additional")
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
 
@@ -306,7 +300,7 @@ def refresh_single_sector_briefing(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="관심 섹터에서 찾을 수 없습니다.")
 
     try:
-        return generate_sector_briefing(db, sector_id, force=True)
+        return generate_sector_briefing(db, sector_id, force=True, briefing_session="additional")
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
 

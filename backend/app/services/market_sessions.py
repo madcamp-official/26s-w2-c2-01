@@ -5,7 +5,7 @@ from datetime import date, datetime, time, timedelta
 from typing import Literal
 from zoneinfo import ZoneInfo
 
-BriefingSession = Literal["market_open", "intraday", "market_close", "after_hours"]
+BriefingSession = Literal["market_open", "intraday", "market_close", "after_hours", "additional"]
 KST = ZoneInfo("Asia/Seoul")
 
 
@@ -52,4 +52,6 @@ def current_session(briefing_date: date | None = None, now: datetime | None = No
 
 
 def session_rank(value: str) -> int:
+    if value == "additional":
+        return len(SESSION_DEFINITIONS)
     return next((index for index, item in enumerate(SESSION_DEFINITIONS) if item.key == value), -1)

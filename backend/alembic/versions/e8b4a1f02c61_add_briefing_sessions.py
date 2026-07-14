@@ -17,7 +17,9 @@ depends_on: Union[str, None] = None
 
 def upgrade() -> None:
     for table in ("daily_briefings", "sector_briefings", "market_overviews"):
-        op.add_column(table, sa.Column("briefing_session", sa.String(length=20), server_default="after_hours", nullable=False))
+        # 세션 구분 없이 저장되던 기존 행을 특정 정기 세션으로 오인하지 않도록
+        # 수동/레거시 스냅샷인 "additional"로 이관한다.
+        op.add_column(table, sa.Column("briefing_session", sa.String(length=20), server_default="additional", nullable=False))
     op.drop_constraint("uq_daily_briefings_ticker_date", "daily_briefings", type_="unique")
     op.create_unique_constraint("uq_daily_briefings_ticker_date_session", "daily_briefings", ["ticker", "briefing_date", "briefing_session"])
     op.drop_constraint("uq_sector_briefings_sector_date", "sector_briefings", type_="unique")

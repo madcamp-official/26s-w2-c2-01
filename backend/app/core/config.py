@@ -45,7 +45,8 @@ class Settings(BaseSettings):
     # 장시작 22시 · 장중 02시 · 장마감 05시 · 휴장 중 14시.
     # (서머타임 기준 — 09:30~16:00 ET = 22:30~05:00 KST를 정시로 반올림함.
     #  겨울철(EST)엔 미장이 1시간씩 밀리니 그 기간엔 23,3,6,14 정도로 조정 필요.)
-    ENABLE_SCHEDULER: bool = True
+    # 명시적으로 켠 환경에서만 자동 브리핑을 생성한다.
+    ENABLE_SCHEDULER: bool = False
     # 관심종목 브리핑 자동 갱신: 미국 장마감 후 종가·마감 뉴스가 안정되는 아침 7시.
     WATCHLIST_REFRESH_HOUR_KST: int = Field(default=7, ge=0, le=23)
     # Full-universe yfinance scan, independently switchable from news jobs.

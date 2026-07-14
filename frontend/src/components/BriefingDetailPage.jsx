@@ -25,7 +25,7 @@ function formatUpdateTime(value) {
 function TodaySessionTabs({ sessions, selected, onSelect, getUpdatedAt }) {
   return (
     <div className="session-tabs" aria-label="오늘의 장 세션">
-      {[...sessions].reverse().map((session) => {
+      {sessions.map((session) => {
         const updatedAt = getUpdatedAt(session.key);
         const time = formatUpdateTime(updatedAt || session.scheduled_at);
         return (
@@ -121,14 +121,22 @@ export default function BriefingDetailPage({
     setSelectedSession(latestAvailableSession);
   }, [briefingDate, detail?.type, detail?.ticker, detail?.sectorId, latestAvailableSession]);
 
-  const SessionTabs = ({ rows }) => (
-    <TodaySessionTabs
-      sessions={briefingSessions}
-      selected={selectedSession}
-      onSelect={setSelectedSession}
-      getUpdatedAt={(key) => rows.find((row) => row.briefing_session === key)?.generated_at}
-    />
-  );
+  const SessionTabs = ({ rows }) => {
+    const additional = rows.find((row) => row.briefing_session === 'additional');
+    const sessions = additional
+      ? [...briefingSessions, {
+        key: 'additional', label: '추가', available: true, scheduled_at: additional.generated_at,
+      }]
+      : briefingSessions;
+    return (
+      <TodaySessionTabs
+        sessions={sessions}
+        selected={selectedSession}
+        onSelect={setSelectedSession}
+        getUpdatedAt={(key) => rows.find((row) => row.briefing_session === key)?.generated_at}
+      />
+    );
+  };
 
   if (!detail) {
     return (
