@@ -21,13 +21,14 @@ from app.core.config import settings
 from app.models.briefing import MarketOverview
 from app.schemas.llm import FactItem, FactsExtraction, MarketOverviewRender
 from app.services.briefing_sanitizer import sanitize_market_overview_render
+from app.services.cnbc_rss_client import fetch_cnbc_market_news
 from app.services.finnhub_client import FinnhubClient, FinnhubError
 from app.services.freshness import is_fresh
 from app.services.llm import get_llm_client
 from app.services.market_sessions import BriefingSession, current_briefing_date, current_session
 
 
-def _facts_from_general_news(articles: list[dict], limit: int = 12) -> FactsExtraction:
+def _facts_from_general_news(articles: list[dict], limit: int = 20) -> FactsExtraction:
     """
     구조화된 Finnhub 일반 뉴스를 LLM 재파싱 없이 facts 스키마로 변환한다.
 
@@ -65,6 +66,41 @@ def _fetch_general_news() -> list[dict]:
         return []
 
 
+def _merge_unique_news(*groups: list[dict], limit: int) -> list[dict]:
+    merged: list[dict] = []
+    seen_urls: set[str] = set()
+    for group in groups:
+        for article in group:
+            url = (article.get("url") or "").strip()
+            if not url or url in seen_urls:
+                continue
+            seen_urls.add(url)
+            merged.append(article)
+            if len(merged) >= limit:
+                return merged
+    return merged
+
+
+def _fetch_market_news() -> list[dict]:
+    """Prefer CNBC RSS and supplement sparse results with Finnhub."""
+    limit = settings.CNBC_MARKET_NEWS_LIMIT
+    if not settings.ENABLE_CNBC_MARKET_RSS:
+        return _fetch_general_news()[:limit]
+
+    cnbc_news = fetch_cnbc_market_news(
+        lookback_hours=settings.CNBC_MARKET_NEWS_LOOKBACK_HOURS,
+        per_feed_limit=settings.CNBC_MARKET_NEWS_PER_FEED,
+        total_limit=limit,
+    )
+    if len(cnbc_news) >= limit:
+        return cnbc_news[:limit]
+
+    finnhub_news = _fetch_general_news()
+    if len(cnbc_news) >= settings.CNBC_MARKET_NEWS_MIN_ARTICLES:
+        return _merge_unique_news(cnbc_news, finnhub_news, limit=limit)
+    return _merge_unique_news(finnhub_news, cnbc_news, limit=limit)
+
+
 def _apply_render(overview: MarketOverview, render: MarketOverviewRender, model_name: str) -> None:
     render = sanitize_market_overview_render(render)
     overview.summary = render.summary
@@ -95,10 +131,10 @@ def generate_market_overview(
     if cached and not force and is_fresh(db, cached.generated_at, settings.REFRESH_INTERVAL_HOURS):
         return cached
 
-    news = _fetch_general_news()
+    news = _fetch_market_news()
     llm = get_llm_client()
 
-    facts = _facts_from_general_news(news)
+    facts = _facts_from_general_news(news, limit=settings.CNBC_MARKET_NEWS_LIMIT)
     render = llm.render_market_overview(facts=facts)
 
     if cached:
