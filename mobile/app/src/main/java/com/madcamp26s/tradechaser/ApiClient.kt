@@ -63,8 +63,25 @@ class ApiClient(
     fun refreshSectorBriefing(sectorId: Int): SectorBriefing =
         sectorBriefingFromJson(requestObject("/briefings/refresh/sectors/$sectorId", method = "POST"))
 
-    fun refreshMarketOverview(): MarketOverview =
-        marketOverviewFromJson(requestObject("/briefings/refresh/overview", method = "POST"))
+    fun refreshMarketOverview(): MarketOverview {
+        val response = requestObject("/briefings/refresh/overview", method = "POST")
+        val jobId = response.optString("job_id").takeIf { it.isNotBlank() }
+            ?: return marketOverviewFromJson(response)
+
+        repeat(300) {
+            Thread.sleep(2_000)
+            val state = requestObject("/briefings/refresh/overview/status/${encode(jobId)}")
+            when (state.optString("status")) {
+                "completed" -> {
+                    val today = requestObject("/briefings/today")
+                    today.optJSONObject("market_overview")?.let { return marketOverviewFromJson(it) }
+                    throw ApiException(500, "전체 시황 생성 결과를 불러오지 못했습니다.")
+                }
+                "failed" -> throw ApiException(500, state.optString("error", "전체 시황 생성에 실패했습니다."))
+            }
+        }
+        throw ApiException(504, "전체 시황 생성 시간이 너무 오래 걸립니다. 잠시 후 다시 시도해 주세요.")
+    }
 
     fun getBriefingHistory(): List<StockBriefing> =
         requestArray("/briefings/history").objects().map(::stockBriefingFromJson)

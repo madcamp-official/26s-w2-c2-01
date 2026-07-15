@@ -560,7 +560,14 @@ class MainActivity : AppCompatActivity() {
         async(
             work = { api.refreshMarketOverview() },
             success = { updated ->
-                briefing = briefing?.copy(marketOverview = updated)
+                briefing = briefing?.let { current ->
+                    current.copy(
+                        marketOverview = updated,
+                        marketOverviews = current.marketOverviews
+                            .filterNot { it.id == updated.id || it.briefingSession == updated.briefingSession }
+                            + updated,
+                    )
+                }
                 briefing?.let { TradeStockWidgetProvider.updateFromBriefing(this, it) }
                 refreshError = null
                 showHome()
@@ -659,7 +666,7 @@ class MainActivity : AppCompatActivity() {
         when (briefingMode) {
             0 -> stockBriefing(root, data)
             1 -> sectorBriefing(root, data)
-            else -> root.addView(overviewCard(data.marketOverview).apply {
+            else -> root.addView(overviewCard(latestMarketOverviewFor(data)).apply {
                 setOnClickListener { openDetail(DetailTarget.Overview()) }
             })
         }
@@ -802,6 +809,25 @@ class MainActivity : AppCompatActivity() {
             .filter { cleanDisplayText(it.oneLineSummary) != null }
             .maxByOrNull { parseIsoMillis(it.generatedAt) ?: Long.MIN_VALUE }
             ?: rows.maxByOrNull { parseIsoMillis(it.generatedAt) ?: Long.MIN_VALUE }
+    }
+
+    private fun latestMarketOverviewFor(data: BriefingData?): MarketOverview? {
+        val rows = marketOverviewRowsFor(data)
+        return rows
+            .filter { cleanDisplayText(it.oneLineSummary) != null }
+            .maxByOrNull { parseIsoMillis(it.generatedAt) ?: Long.MIN_VALUE }
+            ?: rows.maxByOrNull { parseIsoMillis(it.generatedAt) ?: Long.MIN_VALUE }
+    }
+
+    private fun marketOverviewRowsFor(data: BriefingData?): List<MarketOverview> {
+        if (data == null) return emptyList()
+        val rows = data.marketOverviews.toMutableList()
+        data.marketOverview?.let { latest ->
+            if (rows.none { it.id == latest.id && it.briefingSession == latest.briefingSession }) {
+                rows.add(latest)
+            }
+        }
+        return rows
     }
 
     private fun volatilityView(): View {
@@ -1005,7 +1031,7 @@ class MainActivity : AppCompatActivity() {
     private fun detailRowsFor(target: DetailTarget): List<DetailSessionRow> {
         val data = briefing ?: return emptyList()
         return when (target) {
-            is DetailTarget.Overview -> data.marketOverviews
+            is DetailTarget.Overview -> marketOverviewRowsFor(data)
                 .map { DetailSessionRow(it.briefingSession, it.generatedAt) }
             is DetailTarget.Stock -> data.stocks
                 .filter { it.ticker == target.ticker }
@@ -1165,8 +1191,8 @@ class MainActivity : AppCompatActivity() {
         when (target) {
             is DetailTarget.Overview -> {
                 val overview = target.item
-                    ?: data?.marketOverviews?.firstOrNull { it.briefingSession == selectedSession }
-                    ?: data?.marketOverview
+                    ?: marketOverviewRowsFor(data).firstOrNull { it.briefingSession == selectedSession }
+                    ?: latestMarketOverviewFor(data)
                 if (overview == null) {
                     root.addView(empty("아직 전체 시황 브리핑이 생성되지 않았습니다. 뉴스 수집·분석 파이프라인이 연결되면 이곳에 표시됩니다."))
                     return
