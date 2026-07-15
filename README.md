@@ -30,7 +30,7 @@
 
 ## 선택 옵션
 
-- [x] 실시간 인터랙션
+- [ ] 실시간 인터랙션
 - [x] LLM Wrapper
 - [x] Cross-Platform
 
@@ -113,7 +113,7 @@
 
 <!-- 실시간 인터랙션: WebSocket/SSE/WebRTC 구조도 / LLM Wrapper: API 연동 흐름도 / Cross-Platform: 플랫폼 구성도 -->
 
-![Trend Chaser 시스템 아키텍처](<docs/ChatGPT Image 2026년 7월 15일 오후 07_39_24.png>)
+![Trend Chaser 시스템 아키텍처](<docs/ChatGPT Image 2026년 7월 15일 오후 08_33_03.png>)
 
 ---
 
@@ -182,8 +182,7 @@ notion 참고
 
 - **산출물 설명:** 수많은 주식 정보를 꾸준히 브리핑해줌
 - **실행 환경:** website, android application
-- **실행 방법:** website는 링크 타고 들어가기, app은 파일 다운로드
-- **시연 영상 / 이미지:** (선택)
+- **실행 방법:** website는 링크 타고 들어가기, app은 파일 다운로드-
 
 ### 실행 방법
 
@@ -208,21 +207,16 @@ npm run dev   # 또는 python main.py 등
 
 ### Keep — 잘 된 점, 다음에도 유지할 것
 
--
--
--
+- 유료 API를 무료로 바꿨다 (ML서버를 사용함)
+- 어플리케이션도 생성함
 
 ### Problem — 아쉬웠던 점, 개선이 필요한 것
 
--
--
--
+- 초반에 시간을 잘 사용하지 못 했던 것 같다.
 
 ### Try — 다음번에 시도해볼 것
 
--
--
--
+- 주식의 매크로 분야뿐 아니라 차트, 리밸런싱 등 다양한 기능을 넣고 싶다
 
 ### 팀원별 소감
 
