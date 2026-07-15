@@ -573,7 +573,7 @@ INSERT INTO analysis_presets (code, name_ko, persona_text, is_default) VALUES
 - **비용 통제:** 브리핑은 종목 단위로 캐싱되므로, 100명이 같은 AAPL을 봐도 LLM 호출은 하루 1회.
 - **섹터는 정적 매핑:** 매번 LLM으로 분류하지 않고 `stocks.sector_id` 로 고정 → 비용·속도 절감.
 - **확장 지점:** 알림(`notifications`), 브리핑 히스토리 회고, 멀티마켓(한국주식·코인)은 `stocks.exchange`/`market` 컬럼 확장으로 흡수 가능.
-```
+
 
 ---
 
