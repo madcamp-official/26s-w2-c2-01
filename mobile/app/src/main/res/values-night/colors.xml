@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="widget_accent">#FF7C7CF0</color>
+    <color name="widget_accent_soft">#FF2A2A4A</color>
+    <color name="widget_positive">#FF9FE1CB</color>
+    <color name="widget_positive_soft">#FF0D4335</color>
+    <color name="widget_negative">#FFF09595</color>
+    <color name="widget_negative_soft">#FF4A1414</color>
+    <color name="widget_text">#FFF4F5FF</color>
+    <color name="widget_muted">#FFA6A7B8</color>
+</resources>

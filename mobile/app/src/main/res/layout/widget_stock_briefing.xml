@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_stock_background"
+    android:padding="14dp">
+
+    <LinearLayout
+        android:id="@+id/widget_header"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/widget_ticker"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text="오늘의 브리핑"
+            android:textColor="@color/widget_accent"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/widget_name"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text="관심종목"
+            android:textColor="@color/widget_muted"
+            android:textSize="11sp" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/widget_date"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentEnd="true"
+        android:layout_alignParentBottom="true"
+        android:ellipsize="end"
+        android:gravity="end"
+        android:maxLines="1"
+        android:textColor="@color/widget_muted"
+        android:textSize="10sp" />
+
+    <TextView
+        android:id="@+id/widget_summary"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_above="@id/widget_date"
+        android:layout_below="@id/widget_header"
+        android:layout_marginTop="10dp"
+        android:layout_marginBottom="8dp"
+        android:ellipsize="end"
+        android:gravity="center_vertical"
+        android:maxLines="3"
+        android:text="앱에서 관심종목을 추가하고 브리핑을 불러와 주세요."
+        android:textColor="@color/widget_text"
+        android:textSize="12sp"
+        android:visibility="gone" />
+
+    <LinearLayout
+        android:id="@+id/widget_rows"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_above="@id/widget_date"
+        android:layout_below="@id/widget_header"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="8dp"
+        android:orientation="vertical" />
+</RelativeLayout>
