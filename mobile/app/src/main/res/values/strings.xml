@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">TradeChaser</string>
+    <string name="widget_stock_description">선택한 관심종목 브리핑 요약</string>
+</resources>

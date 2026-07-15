@@ -24,7 +24,6 @@ _LEAKED_FIELD_NAME = re.compile(r"\bsource_url\b")
 _URL_PATTERN = re.compile(r"https?://")
 _HANGUL_PATTERN = re.compile(r"[가-힣]")
 _MARKET_SUMMARY_MIN_LENGTH = 300
-_ONE_LINE_SUMMARY_MAX_LENGTH = 20
 
 ONE_LINE_SUMMARY_RETRY_INSTRUCTION = """
 [한 줄 요약 재작성 및 출력 규칙 재확인]
@@ -32,17 +31,14 @@ ONE_LINE_SUMMARY_RETRY_INSTRUCTION = """
 최소 5문장·400자 내외의 충분히 상세한 한국어로 작성하세요. 모든 사용자 표시
 설명은 고유명사를 제외하고 한국어를 포함해야 합니다. 다른 필드의 형식은 유지하면서
 one_line_summary를 줄바꿈 없는 완결된 한국어 한 문장으로 다시 작성하세요.
-공백과 마지막 문장부호를 포함해 20자 이하로 작성하고, 가능하면
+공백과 마지막 문장부호를 포함해 50자 이하로 작성하고, 가능하면
 마침표·느낌표·물음표 중 하나로 끝내세요.
 """.strip()
 
 
 def validate_one_line_summary(value: str) -> str:
-    """Normalize card text and cap it to the DB constraint's 20+3 characters."""
-    normalized = re.sub(r"\s+", " ", value).strip()
-    if len(normalized) > _ONE_LINE_SUMMARY_MAX_LENGTH:
-        normalized = normalized[:_ONE_LINE_SUMMARY_MAX_LENGTH].rstrip() + "..."
-    return normalized
+    """Normalize card text whitespace only — length is enforced by the prompt, not cut here."""
+    return re.sub(r"\s+", " ", value).strip()
 
 
 def validate_render_output(value: object) -> object:
