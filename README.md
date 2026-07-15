@@ -575,6 +575,7 @@ INSERT INTO analysis_presets (code, name_ko, persona_text, is_default) VALUES
 - **확장 지점:** 알림(`notifications`), 브리핑 히스토리 회고, 멀티마켓(한국주식·코인)은 `stocks.exchange`/`market` 컬럼 확장으로 흡수 가능.
 ```
 
+---
 
 ### API / 외부 서비스 연동
 
