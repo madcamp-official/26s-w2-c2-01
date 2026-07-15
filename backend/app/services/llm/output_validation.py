@@ -24,7 +24,6 @@ _LEAKED_FIELD_NAME = re.compile(r"\bsource_url\b")
 _URL_PATTERN = re.compile(r"https?://")
 _HANGUL_PATTERN = re.compile(r"[가-힣]")
 _MARKET_SUMMARY_MIN_LENGTH = 300
-_ONE_LINE_SUMMARY_MAX_LENGTH = 50
 
 ONE_LINE_SUMMARY_RETRY_INSTRUCTION = """
 [한 줄 요약 재작성 및 출력 규칙 재확인]
@@ -38,11 +37,8 @@ one_line_summary를 줄바꿈 없는 완결된 한국어 한 문장으로 다시
 
 
 def validate_one_line_summary(value: str) -> str:
-    """Normalize card text and cap it to the DB constraint's 50+3 characters."""
-    normalized = re.sub(r"\s+", " ", value).strip()
-    if len(normalized) > _ONE_LINE_SUMMARY_MAX_LENGTH:
-        normalized = normalized[:_ONE_LINE_SUMMARY_MAX_LENGTH].rstrip() + "..."
-    return normalized
+    """Normalize card text whitespace only — length is enforced by the prompt, not cut here."""
+    return re.sub(r"\s+", " ", value).strip()
 
 
 def validate_render_output(value: object) -> object:
