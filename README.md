@@ -87,10 +87,10 @@
 |---|---|
 | 07.09 | 주제 정하기 |
 | 07.10 | 계획 구체화하기 |
-| 07.11 |  |
-| 07.13 |  |
-| 07.14 |  |
-| 07.15 |  |
+| 07.11 | 기본 MVP 생성 |
+| 07.13 | 어플리케이션 개발 |
+| 07.14 | ML+GEMINI API로 변경 |
+| 07.15 | 문서 작성 |
 
 ---
 
@@ -113,7 +113,8 @@
 
 <!-- 실시간 인터랙션: WebSocket/SSE/WebRTC 구조도 / LLM Wrapper: API 연동 흐름도 / Cross-Platform: 플랫폼 구성도 -->
 
-docs/system-architecture.svg
+![Trend Chaser 시스템 아키텍처](<docs/ChatGPT Image 2026년 7월 15일 오후 07_39_24.png>)
+
 ---
 
 ## 설계 문서
@@ -124,9 +125,11 @@ docs/system-architecture.svg
 
 <!-- Figma 링크, 화면 이미지, CLI 사용 예시, 앱 화면 등 -->
 
+notion 참고
+
 ### 데이터 구조
 
-[text](DB스키마.md)
+[DB스키마](DB스키마.md)
 
 ### API / 외부 서비스 연동
 
@@ -158,9 +161,6 @@ docs/system-architecture.svg
 | `GET` | `/briefings/history/sectors` | 관심 섹터 브리핑 이력 조회 | 없음 | 날짜 역순 섹터 브리핑 | 필요 |
 | `GET` | `/briefings/history/overview` | 전체 시황 이력 조회 | 없음 | 날짜 역순 전체 시황 | 불필요 |
 
-수동 브리핑 갱신은 사용자별 30분에 한 번으로 제한된다. 전체 시황 갱신은 오래 걸릴 수
-있어 비동기 작업으로 시작하며, 프론트엔드는 반환된 `job_id`로 상태 API를 폴링한 뒤
-`/briefings/today`를 다시 조회한다.
 
 #### 외부 서비스 연동
 
@@ -175,10 +175,7 @@ docs/system-architecture.svg
 | HTTP · Ollama | 자체 호스팅 모델(Gemma2)의 브리핑 사실 추출·생성 | `OLLAMA_BASE_URL`, `OLLAMA_MODEL` | `services/llm/ollama_client.py` | URL이 없으면 Claude 또는 Gemini 사용 |
 | PostgreSQL 16 | 사용자·관심 목록·시세·뉴스·브리핑·분석 데이터 저장 | `DATABASE_URL` | SQLAlchemy models/CRUD, Alembic | Docker Compose에서 DB healthcheck 통과 후 백엔드 시작 |
 
-LLM 클라이언트는 환경 설정에 따라 Factory가 선택한다. 기본 우선순위는
-`Ollama(사실)+Gemini(렌더링)` → `Gemini(사실)+Claude(렌더링)` → Ollama → Claude →
-Gemini → Stub 순서다. API 키가 없는 개발 환경에서도 Stub 응답으로 전체 파이프라인을
-실행할 수 있다.
+
 ---
 
 ## 산출물 및 실행 방법
@@ -201,15 +198,7 @@ npm install   # 또는 pip install -r requirements.txt 등
 npm run dev   # 또는 python main.py 등
 ```
 
-### 기술 구성
 
-| 분류 | 사용 기술 |
-|---|---|
-| 핵심 기술 |  |
-| 실행 환경 |  |
-| 데이터 저장 |  |
-| 외부 API / 서비스 |  |
-| 기타 |  |
 
 ---
 
