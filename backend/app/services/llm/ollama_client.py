@@ -24,11 +24,7 @@ from app.services.llm.claude_client import (
     MARKET_SYSTEM_PROMPT,
     RENDER_SYSTEM_PROMPT,
 )
-from app.services.llm.output_validation import (
-    ONE_LINE_SUMMARY_RETRY_INSTRUCTION,
-    find_malformed_strings,
-    validate_render_output,
-)
+from app.services.llm.output_validation import find_malformed_strings, validate_render_output
 
 
 class OllamaBriefingLLMClient(BriefingLLMClient):
@@ -64,8 +60,6 @@ class OllamaBriefingLLMClient(BriefingLLMClient):
                 return validate_render_output(parsed)
             except Exception as exc:  # noqa: BLE001 - API/파싱/검증 실패 시 재시도, 최종 실패는 위로 전파
                 last_error = exc
-                if "one_line_summary" in schema.model_fields:
-                    retry_prompt = f"{user_prompt}\n\n{ONE_LINE_SUMMARY_RETRY_INSTRUCTION}"
         raise RuntimeError(f"Ollama 구조화 출력 생성 실패(재시도 포함): {last_error}") from last_error
 
     def extract_facts(

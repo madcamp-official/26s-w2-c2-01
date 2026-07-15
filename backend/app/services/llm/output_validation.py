@@ -37,15 +37,10 @@ one_line_summary를 줄바꿈 없는 완결된 한국어 한 문장으로 다시
 
 
 def validate_one_line_summary(value: str) -> str:
-    """Validate business rules after LLM parsing, outside provider JSON Schema."""
-    if "\n" in value or "\r" in value:
-        raise ValueError("one_line_summary must not contain line breaks")
+    """Normalize the one-line summary — never raises; truncates overly long output."""
     normalized = re.sub(r"\s+", " ", value).strip()
-    length = len(normalized)
-    if not 30 <= length <= 40:
-        raise ValueError(f"one_line_summary must be 30-40 characters, got {length}")
-    if not normalized.endswith((".", "!", "?")):
-        raise ValueError("one_line_summary must end with sentence punctuation")
+    if len(normalized) > _ONE_LINE_SUMMARY_MAX_LENGTH:
+        normalized = normalized[:_ONE_LINE_SUMMARY_MAX_LENGTH].rstrip() + "..."
     return normalized
 
 

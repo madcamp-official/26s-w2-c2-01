@@ -13,7 +13,7 @@ class DailyBriefing(Base):
     __table_args__ = (
         CheckConstraint("sentiment IN ('positive','neutral','negative')", name="ck_daily_briefings_sentiment"),
         CheckConstraint(
-            "char_length(one_line_summary) BETWEEN 30 AND 40",
+            "char_length(one_line_summary) <= 23",
             name="ck_daily_briefings_one_line_summary_length",
         ),
         UniqueConstraint("ticker", "briefing_date", "briefing_session", name="uq_daily_briefings_ticker_date_session"),
@@ -50,7 +50,7 @@ class SectorBriefing(Base):
     __table_args__ = (
         CheckConstraint("sentiment IN ('positive','neutral','negative')", name="ck_sector_briefings_sentiment"),
         CheckConstraint(
-            "char_length(one_line_summary) BETWEEN 30 AND 40",
+            "char_length(one_line_summary) <= 23",
             name="ck_sector_briefings_one_line_summary_length",
         ),
         UniqueConstraint("sector_id", "briefing_date", "briefing_session", name="uq_sector_briefings_sector_date_session"),
@@ -79,7 +79,7 @@ class MarketOverview(Base):
     __table_args__ = (
         CheckConstraint("sentiment IN ('positive','neutral','negative')", name="ck_market_overviews_sentiment"),
         CheckConstraint(
-            "char_length(one_line_summary) BETWEEN 30 AND 40",
+            "char_length(one_line_summary) <= 23",
             name="ck_market_overviews_one_line_summary_length",
         ),
         UniqueConstraint("briefing_date", "briefing_session", name="uq_market_overviews_date_session"),
