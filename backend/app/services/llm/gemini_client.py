@@ -22,16 +22,18 @@ from app.services.llm.claude_client import (
     RENDER_SYSTEM_PROMPT,
 )
 from app.services.llm.errors import LLMQuotaExceededError
-from app.services.llm.output_validation import find_malformed_strings, validate_render_output
+from app.services.llm.output_validation import (
+    ONE_LINE_SUMMARY_RETRY_INSTRUCTION,
+    find_malformed_strings,
+    validate_render_output,
+)
 
 
 class GeminiBriefingLLMClient(BriefingLLMClient):
-    # 특정 버전(예: gemini-2.5-flash)을 고정하면 구글이 신규 프로젝트에 대해
-    # 조용히 단종시킬 때(실측: 2026-07-14, 404 "no longer available to new
-    # users") 매번 폴백만 타게 된다 — latest 별칭으로 그 문제를 피한다.
     model_name = "gemini-3.1-flash-lite"
 
-    def __init__(self, api_key: str) -> None:
+    def __init__(self, api_key: str, model: str = "gemini-3.1-flash-lite") -> None:
+        self.model_name = model
         self._client = genai.Client(api_key=api_key)
 
     def _generate(self, *, system_prompt: str, user_prompt: str, schema: type):
@@ -62,6 +64,8 @@ class GeminiBriefingLLMClient(BriefingLLMClient):
                 ):
                     raise LLMQuotaExceededError() from exc
                 last_error = exc
+                if "one_line_summary" in schema.model_fields:
+                    retry_prompt = f"{user_prompt}\n\n{ONE_LINE_SUMMARY_RETRY_INSTRUCTION}"
         raise RuntimeError(f"Gemini 호출 실패(재시도 포함): {last_error}") from last_error
 
     def extract_facts(

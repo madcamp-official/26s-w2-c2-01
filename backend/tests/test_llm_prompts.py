@@ -21,10 +21,9 @@ class LlmPromptTest(TestCase):
 
         self.assertIn("source_url 필드에만", RENDER_SYSTEM_PROMPT)
         self.assertIn("source_url이 없는 내용은 reasons 항목으로 만들지 않는다", RENDER_SYSTEM_PROMPT)
-        self.assertIn("30자 이상 40자 이하", RENDER_SYSTEM_PROMPT)
-        self.assertIn("중간에서 자르거나", RENDER_SYSTEM_PROMPT)
+        self.assertIn("20자 이하", RENDER_SYSTEM_PROMPT)
         self.assertIn("one_line_summary", MARKET_SYSTEM_PROMPT)
-        self.assertIn("30자 이상 40자 이하", MARKET_SYSTEM_PROMPT)
+        self.assertIn("20자 이하", MARKET_SYSTEM_PROMPT)
         self.assertIn("summary는 최소 5문장, 400~700자", MARKET_SYSTEM_PROMPT)
         self.assertIn("장시작·장중·장마감·시간외·수동 새로고침", MARKET_SYSTEM_PROMPT)
         self.assertIn("indices의 description", MARKET_SYSTEM_PROMPT)

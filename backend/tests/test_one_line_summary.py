@@ -8,20 +8,11 @@ from app.services.llm.output_validation import validate_one_line_summary, valida
 
 
 class OneLineSummaryTest(TestCase):
-    def test_briefing_summary_must_be_between_30_and_40_characters(self) -> None:
-        for value in ("가" * 28 + ".", "가" * 40 + "."):
-            with self.subTest(length=len(value)), self.assertRaises(ValueError):
-                validate_one_line_summary(value)
+    def test_briefing_summary_is_capped_to_database_limit(self) -> None:
+        self.assertEqual(validate_one_line_summary("가" * 21), "가" * 20 + "...")
 
-    def test_briefing_summary_accepts_both_length_boundaries(self) -> None:
-        for value in ("가" * 29 + ".", "가" * 39 + "."):
-            with self.subTest(length=len(value)):
-                self.assertEqual(validate_one_line_summary(value), value)
-
-    def test_briefing_summary_must_be_a_complete_single_line_sentence(self) -> None:
-        for value in ("가" * 35, "가" * 20 + "\n" + "나" * 14 + "."):
-            with self.subTest(value=value), self.assertRaises(ValueError):
-                validate_one_line_summary(value)
+    def test_briefing_summary_normalizes_whitespace(self) -> None:
+        self.assertEqual(validate_one_line_summary("핵심\n요약입니다."), "핵심 요약입니다.")
 
     def test_provider_schemas_do_not_contain_unsupported_string_lengths(self) -> None:
         for schema in (BriefingRender, MarketOverviewRender):
@@ -49,15 +40,15 @@ class OneLineSummaryTest(TestCase):
         with self.assertRaisesRegex(ValueError, "positive_factors must be written in Korean"):
             validate_render_output(render)
 
-    def test_gemini_retries_with_correction_when_summary_is_invalid(self) -> None:
-        invalid = BriefingRender(
-            summary="상세 요약",
-            one_line_summary="짧은 요약입니다.",
+    def test_gemini_retries_with_correction_when_market_summary_is_invalid(self) -> None:
+        invalid = MarketOverviewRender(
+            summary="짧은 시황 요약입니다.",
+            one_line_summary="핵심 이슈와 변동 요인을 확인합니다.",
             sentiment="neutral",
         )
-        valid = BriefingRender(
-            summary="상세 요약",
-            one_line_summary="핵심 이슈와 변동 요인을 종합적으로 확인할 필요가 있습니다.",
+        valid = MarketOverviewRender(
+            summary="한국어 시황 요약입니다. " * 25,
+            one_line_summary="핵심 이슈와 변동 요인을 확인합니다.",
             sentiment="neutral",
         )
 
@@ -76,7 +67,7 @@ class OneLineSummaryTest(TestCase):
         result = client._generate(
             system_prompt="system",
             user_prompt="original prompt",
-            schema=BriefingRender,
+            schema=MarketOverviewRender,
         )
 
         self.assertEqual(result.one_line_summary, valid.one_line_summary)

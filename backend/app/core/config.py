@@ -26,6 +26,9 @@ class Settings(BaseSettings):
     # 설정돼 있으면 1단계(팩트 추출)를 Gemini 무료 티어로 대체해 Claude 호출을
     # 절반으로 줄인다 (factory.py의 HybridBriefingLLMClient). 없으면 Claude만 사용.
     GEMINI_API_KEY: str = ""
+    # Google AI Studio의 정식 모델 ID. 이미지를 다시 빌드하지 않고도
+    # .env와 Docker Compose 환경변수로 모델을 교체할 수 있게 별도 설정한다.
+    GEMINI_MODEL: str = "gemini-3.1-flash-lite"
 
     # 설정돼 있으면 2단계(해석·렌더링)를 자체 ML 서버의 Ollama(Gemma2)로 대체해
     # Claude 호출을 아예 없앤다 (factory.py get_llm_client 참고). 예:

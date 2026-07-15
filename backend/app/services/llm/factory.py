@@ -28,11 +28,15 @@ def get_llm_client() -> BriefingLLMClient:
             facts_client=OllamaBriefingLLMClient(
                 base_url=settings.OLLAMA_BASE_URL, model=settings.OLLAMA_MODEL
             ),
-            render_client=GeminiBriefingLLMClient(api_key=settings.GEMINI_API_KEY),
+            render_client=GeminiBriefingLLMClient(
+                api_key=settings.GEMINI_API_KEY, model=settings.GEMINI_MODEL
+            ),
         )
     if settings.ANTHROPIC_API_KEY and settings.GEMINI_API_KEY:
         return HybridBriefingLLMClient(
-            facts_client=GeminiBriefingLLMClient(api_key=settings.GEMINI_API_KEY),
+            facts_client=GeminiBriefingLLMClient(
+                api_key=settings.GEMINI_API_KEY, model=settings.GEMINI_MODEL
+            ),
             render_client=ClaudeBriefingLLMClient(api_key=settings.ANTHROPIC_API_KEY),
         )
     if settings.OLLAMA_BASE_URL:
@@ -40,5 +44,7 @@ def get_llm_client() -> BriefingLLMClient:
     if settings.ANTHROPIC_API_KEY:
         return ClaudeBriefingLLMClient(api_key=settings.ANTHROPIC_API_KEY)
     if settings.GEMINI_API_KEY:
-        return GeminiBriefingLLMClient(api_key=settings.GEMINI_API_KEY)
+        return GeminiBriefingLLMClient(
+            api_key=settings.GEMINI_API_KEY, model=settings.GEMINI_MODEL
+        )
     return StubBriefingLLMClient()
