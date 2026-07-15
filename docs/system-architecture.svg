@@ -1,0 +1,208 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1080" viewBox="0 0 1600 1080" role="img" aria-labelledby="title desc">
+  <title id="title">Trend Chaser 시스템 아키텍처</title>
+  <desc id="desc">React 프런트엔드, FastAPI 백엔드, PostgreSQL, 스케줄러, 시장 데이터 공급자와 LLM 공급자의 데이터 흐름</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#07111f"/>
+      <stop offset="1" stop-color="#101b31"/>
+    </linearGradient>
+    <linearGradient id="hero" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#2dd4bf"/>
+      <stop offset="1" stop-color="#60a5fa"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#000814" flood-opacity="0.34"/>
+    </filter>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#72e4d3"/>
+    </marker>
+    <marker id="arrowBlue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#7cb7ff"/>
+    </marker>
+    <style>
+      text { font-family: "Pretendard", "Noto Sans KR", "Malgun Gothic", Arial, sans-serif; }
+      .panel { fill:#0d1a2d; stroke:#29405f; stroke-width:1.5; filter:url(#shadow); }
+      .node { fill:#12233a; stroke:#345273; stroke-width:1.5; }
+      .node-teal { fill:#0d2b31; stroke:#2dd4bf; stroke-width:1.6; }
+      .node-blue { fill:#112744; stroke:#60a5fa; stroke-width:1.6; }
+      .node-violet { fill:#241d43; stroke:#a78bfa; stroke-width:1.6; }
+      .node-amber { fill:#332615; stroke:#fbbf24; stroke-width:1.6; }
+      .title { fill:#f7fbff; font-size:30px; font-weight:800; }
+      .subtitle { fill:#91a7c2; font-size:15px; font-weight:500; }
+      .section { fill:#dcecff; font-size:18px; font-weight:800; }
+      .label { fill:#f3f8ff; font-size:17px; font-weight:750; }
+      .body { fill:#b8c9dc; font-size:13px; font-weight:500; }
+      .small { fill:#8ea6c1; font-size:12px; font-weight:500; }
+      .tiny { fill:#7690ad; font-size:11px; font-weight:500; }
+      .badge { fill:#081321; font-size:11px; font-weight:800; letter-spacing:.7px; }
+      .flow { fill:none; stroke:#72e4d3; stroke-width:2.4; marker-end:url(#arrow); }
+      .flow-blue { fill:none; stroke:#7cb7ff; stroke-width:2.4; marker-end:url(#arrowBlue); }
+      .flow-dash { fill:none; stroke:#7cb7ff; stroke-width:2.1; stroke-dasharray:7 7; marker-end:url(#arrowBlue); }
+      .divider { stroke:#263b57; stroke-width:1; }
+    </style>
+  </defs>
+
+  <rect width="1600" height="1080" fill="url(#bg)"/>
+  <circle cx="1480" cy="110" r="240" fill="#1b4d6b" opacity="0.14"/>
+  <circle cx="90" cy="1030" r="250" fill="#0f766e" opacity="0.10"/>
+
+  <text id="architecture-title" x="70" y="62" class="title">Trend Chaser · 시스템 아키텍처</text>
+  <text x="70" y="91" class="subtitle">시장 데이터 수집 → AI 브리핑 생성 → 사용자 맞춤 조회 · 현재 프로젝트 코드 기준</text>
+  <rect x="1280" y="45" width="250" height="40" rx="20" fill="#10273d" stroke="#2dd4bf"/>
+  <circle cx="1306" cy="65" r="6" fill="#2dd4bf"/>
+  <text x="1323" y="70" class="body" fill="#d9fff8">REST + Batch Hybrid</text>
+
+  <!-- Client -->
+  <rect x="70" y="140" width="250" height="720" rx="22" class="panel"/>
+  <rect x="94" y="163" width="84" height="25" rx="12" fill="url(#hero)"/>
+  <text x="112" y="180" class="badge">CLIENT</text>
+  <text x="94" y="222" class="section">사용자 영역</text>
+
+  <rect x="94" y="247" width="202" height="92" rx="15" class="node-teal"/>
+  <text x="114" y="277" class="label">Web Browser</text>
+  <text x="114" y="302" class="body">Desktop · Mobile</text>
+  <text x="114" y="323" class="small">사용자 입력 / 결과 확인</text>
+
+  <path d="M195 339 L195 372" class="flow"/>
+
+  <rect x="94" y="373" width="202" height="226" rx="15" class="node-blue"/>
+  <text x="114" y="404" class="label">React 19 + Vite</text>
+  <text x="114" y="432" class="body">화면</text>
+  <text x="126" y="455" class="small">오늘의 브리핑 · 상세</text>
+  <text x="126" y="477" class="small">변동성 · 분석 렌즈</text>
+  <text x="126" y="499" class="small">마이페이지 · 인증</text>
+  <line x1="114" y1="518" x2="276" y2="518" class="divider"/>
+  <text x="114" y="544" class="body">상태 / 통신</text>
+  <text x="126" y="567" class="small">Fetch API · JSON</text>
+  <text x="126" y="589" class="small">JWT → localStorage</text>
+
+  <rect x="94" y="624" width="202" height="104" rx="15" class="node"/>
+  <text x="114" y="655" class="label">사용자 액션</text>
+  <text x="114" y="682" class="small">관심 종목 / 섹터 관리</text>
+  <text x="114" y="704" class="small">브리핑 수동 갱신</text>
+
+  <rect x="94" y="753" width="202" height="82" rx="15" fill="#0b1728" stroke="#263e59"/>
+  <text x="114" y="783" class="body">응답 갱신 방식</text>
+  <text x="114" y="809" class="small">REST 조회 + 작업 상태 폴링</text>
+
+  <!-- Backend -->
+  <rect x="370" y="140" width="800" height="720" rx="22" class="panel"/>
+  <rect x="394" y="163" width="96" height="25" rx="12" fill="#60a5fa"/>
+  <text x="410" y="180" class="badge">BACKEND</text>
+  <text x="394" y="222" class="section">FastAPI Application</text>
+
+  <rect x="394" y="247" width="752" height="112" rx="16" class="node-blue"/>
+  <text x="418" y="278" class="label">REST API Layer</text>
+  <text x="418" y="306" class="body">Auth · Users · Stocks · Watchlists · Sector Watchlists</text>
+  <text x="418" y="333" class="body">Briefings · Analysis Categories / Presets</text>
+  <rect x="1000" y="271" width="116" height="28" rx="14" fill="#0b1728" stroke="#60a5fa"/>
+  <text x="1027" y="289" class="small">JWT Auth</text>
+  <rect x="1000" y="310" width="116" height="28" rx="14" fill="#0b1728" stroke="#60a5fa"/>
+  <text x="1032" y="328" class="small">CORS</text>
+
+  <path d="M770 359 L770 392" class="flow"/>
+
+  <rect x="394" y="393" width="476" height="233" rx="16" class="node-teal"/>
+  <text x="418" y="424" class="label">Domain Services &amp; Pipelines</text>
+
+  <rect x="418" y="447" width="204" height="66" rx="12" fill="#10263a" stroke="#2e6680"/>
+  <text x="434" y="474" class="body">Market Data</text>
+  <text x="434" y="496" class="small">수집 · 정규화 · 관련도 필터</text>
+
+  <rect x="638" y="447" width="208" height="66" rx="12" fill="#10263a" stroke="#2e6680"/>
+  <text x="654" y="474" class="body">Briefing Pipelines</text>
+  <text x="654" y="496" class="small">전체 · 섹터 · 종목</text>
+
+  <rect x="418" y="528" width="204" height="70" rx="12" fill="#10263a" stroke="#2e6680"/>
+  <text x="434" y="555" class="body">Volatility Scanner</text>
+  <text x="434" y="577" class="small">Daily · Premarket 캐시</text>
+
+  <rect x="638" y="528" width="208" height="70" rx="12" fill="#10263a" stroke="#2e6680"/>
+  <text x="654" y="555" class="body">Classification / Cache</text>
+  <text x="654" y="577" class="small">섹터 분류 · 인기 종목</text>
+
+  <rect x="892" y="393" width="254" height="233" rx="16" class="node-violet"/>
+  <text x="916" y="424" class="label">LLM Wrapper</text>
+  <text x="916" y="451" class="small">Factory가 환경 설정에 따라 선택</text>
+  <line x1="916" y1="470" x2="1122" y2="470" class="divider"/>
+  <text x="916" y="496" class="body">① 사실 추출</text>
+  <text x="931" y="519" class="small">Gemini 또는 Ollama</text>
+  <text x="916" y="550" class="body">② 해석 · 렌더링</text>
+  <text x="931" y="573" class="small">Claude 또는 Gemini</text>
+  <text x="916" y="602" class="tiny">키 미설정 시 Stub으로 동작</text>
+
+  <path d="M632 626 L632 657" class="flow"/>
+  <path d="M1019 626 L1019 657" class="flow"/>
+
+  <rect x="394" y="658" width="476" height="176" rx="16" class="node-amber"/>
+  <text x="418" y="690" class="label">APScheduler + Background Jobs</text>
+  <text x="418" y="719" class="body">정기 갱신 · KST 02 / 05 / 14 / 22</text>
+  <text x="418" y="746" class="small">뉴스 재수집 → 시장 전체 → 섹터 → 관심 종목 브리핑</text>
+  <text x="418" y="775" class="body">변동성 스캔 · America/New_York 기준</text>
+  <text x="418" y="802" class="small">장 마감 Daily / 장 전 Premarket / 시작 시 Bootstrap</text>
+
+  <rect x="892" y="658" width="254" height="176" rx="16" class="node"/>
+  <text x="916" y="690" class="label">Data Access</text>
+  <text x="916" y="720" class="body">SQLAlchemy ORM</text>
+  <text x="916" y="746" class="body">Alembic Migrations</text>
+  <text x="916" y="778" class="small">CRUD · Session · Models</text>
+  <text x="916" y="804" class="small">중복 방지 / 캐시 저장</text>
+
+  <!-- DB -->
+  <rect x="1220" y="140" width="310" height="360" rx="22" class="panel"/>
+  <rect x="1244" y="163" width="82" height="25" rx="12" fill="#fbbf24"/>
+  <text x="1266" y="180" class="badge">DATA</text>
+  <text x="1244" y="222" class="section">PostgreSQL 16</text>
+  <ellipse cx="1375" cy="272" rx="92" ry="28" fill="#332615" stroke="#fbbf24" stroke-width="1.6"/>
+  <path d="M1283 272 v62 c0 16 41 28 92 28 s92-12 92-28 v-62" fill="#332615" stroke="#fbbf24" stroke-width="1.6"/>
+  <path d="M1283 302 c0 16 41 28 92 28 s92-12 92-28" fill="none" stroke="#8f6b20"/>
+  <text x="1331" y="314" class="label">Core DB</text>
+  <text x="1246" y="398" class="small">Users · Stocks · Sectors</text>
+  <text x="1246" y="421" class="small">Watchlists · Price Snapshots</text>
+  <text x="1246" y="444" class="small">News · Briefings · Analyses</text>
+  <text x="1246" y="475" class="tiny">Docker volume: pgdata</text>
+
+  <!-- External -->
+  <rect x="70" y="900" width="1460" height="135" rx="22" class="panel"/>
+  <rect x="94" y="921" width="104" height="25" rx="12" fill="#a78bfa"/>
+  <text x="109" y="938" class="badge">EXTERNAL</text>
+
+  <rect x="226" y="919" width="210" height="92" rx="15" class="node"/>
+  <text x="250" y="951" class="label">Finnhub API</text>
+  <text x="250" y="978" class="small">종목 시세 · 기업 뉴스</text>
+
+  <rect x="458" y="919" width="210" height="92" rx="15" class="node"/>
+  <text x="482" y="951" class="label">CNBC RSS</text>
+  <text x="482" y="978" class="small">시장 전체 뉴스 · 주 공급원</text>
+
+  <rect x="690" y="919" width="220" height="92" rx="15" class="node"/>
+  <text x="714" y="951" class="label">Polygon / yfinance</text>
+  <text x="714" y="978" class="small">OHLCV · 변동성 스캔</text>
+
+  <rect x="932" y="919" width="258" height="92" rx="15" class="node-violet"/>
+  <text x="956" y="951" class="label">AI Providers</text>
+  <text x="956" y="978" class="small">Claude · Gemini · Ollama</text>
+
+  <rect x="1212" y="919" width="290" height="92" rx="15" class="node"/>
+  <text x="1236" y="951" class="label">Deployment</text>
+  <text x="1236" y="978" class="small">Docker Compose · Backend + DB</text>
+
+  <!-- Cross-boundary flows -->
+  <path d="M296 485 C330 485 338 303 394 303" class="flow-blue"/>
+  <text x="316" y="380" class="tiny">HTTPS / REST JSON</text>
+
+  <path d="M1146 746 C1186 746 1190 336 1283 336" class="flow"/>
+  <path d="M1283 313 C1190 313 1198 706 1146 706" class="flow-blue"/>
+  <text x="1174" y="535" class="tiny">ORM Read / Write</text>
+
+  <path d="M520 834 C520 875 331 875 331 919" class="flow-dash"/>
+  <path d="M575 834 C575 884 563 884 563 919" class="flow-dash"/>
+  <path d="M665 834 C665 884 800 884 800 919" class="flow-dash"/>
+  <path d="M1019 834 L1061 919" class="flow-dash"/>
+
+  <!-- Legend -->
+  <line x1="1110" y1="1061" x2="1158" y2="1061" stroke="#72e4d3" stroke-width="2.4"/>
+  <text x="1169" y="1065" class="tiny">내부 처리 / 저장</text>
+  <line x1="1292" y1="1061" x2="1340" y2="1061" stroke="#7cb7ff" stroke-width="2.1" stroke-dasharray="7 7"/>
+  <text x="1351" y="1065" class="tiny">외부 API 호출</text>
+</svg>
