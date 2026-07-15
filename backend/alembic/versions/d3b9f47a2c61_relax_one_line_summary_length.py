@@ -1,4 +1,4 @@
-"""relax one-line summary length to max 50 chars (+ ... truncation)
+"""relax one-line summary length to max 20 chars (+ ... truncation)
 
 Revision ID: d3b9f47a2c61
 Revises: c4f82d6a1e93
@@ -16,28 +16,34 @@ depends_on: Union[str, Sequence[str], None] = None
 _TABLES = ("daily_briefings", "sector_briefings", "market_overviews")
 
 # 30~40자 강제 방식이 LLM 재시도를 자주 실패시켜 새로고침이 503으로 떨어지는
-# 원인이었다(2026-07-14). 앱 레벨 검증을 50자 초과분을 "..."로 자르는 방식으로
+# 원인이었다(2026-07-14). 앱 레벨 검증을 20자 초과분을 "..."로 자르는 방식으로
 # 바꿨는데, DB의 BETWEEN 30 AND 40 체크 제약이 그대로 남아있어 자른 결과가
 # 저장될 때 CheckViolation으로 500이 나는 문제가 있었다. 제약을 앱 로직의
-# 최대 길이(50자 + "..." = 53자)에 맞춰 완화한다.
+# 최대 길이(20자 + "..." = 23자)에 맞춰 완화한다.
+#
+# NOTE: 이 리비전은 VM에 이미 적용되어 alembic_version에 기록됐다. 이후 20자
+# 제한을 50자로 늘리기로 하면서 이 파일을 <=53으로 고쳐 재배포했지만, alembic은
+# 리비전 ID만 보고 "이미 적용됨"으로 판단해 재실행하지 않아 DB 제약과 앱 검증이
+# 어긋나는 버그가 났다(2026-07-15). 그래서 이 파일은 실제 적용된 원래 내용
+# (<=23)으로 되돌리고, 50자로 늘리는 변경은 새 리비전(e1c7a92f4b83)으로 쌓는다.
 
 
 def upgrade() -> None:
     for table in _TABLES:
-        # 기존 30~40자 제약이 걸린 채로 53자짜리 값을 UPDATE하면 그 UPDATE
+        # 기존 30~40자 제약이 걸린 채로 23자짜리 값을 UPDATE하면 그 UPDATE
         # 자체가 위반이 되므로, 반드시 제약을 먼저 드롭한 뒤 백필해야 한다.
         op.drop_constraint(f"ck_{table}_one_line_summary_length", table, type_="check")
         op.execute(
             f"""
             UPDATE {table}
-            SET one_line_summary = LEFT(one_line_summary, 50) || '...'
-            WHERE one_line_summary IS NOT NULL AND char_length(one_line_summary) > 53
+            SET one_line_summary = LEFT(one_line_summary, 20) || '...'
+            WHERE one_line_summary IS NOT NULL AND char_length(one_line_summary) > 23
             """
         )
         op.create_check_constraint(
             f"ck_{table}_one_line_summary_length",
             table,
-            "char_length(one_line_summary) <= 53",
+            "char_length(one_line_summary) <= 23",
         )
 
 
