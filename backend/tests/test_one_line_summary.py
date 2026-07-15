@@ -4,7 +4,7 @@ from types import SimpleNamespace
 from app.schemas.llm import BriefingRender, MarketOverviewRender
 from app.services.llm.errors import LLMQuotaExceededError
 from app.services.llm.gemini_client import GeminiBriefingLLMClient
-from app.services.llm.output_validation import validate_one_line_summary
+from app.services.llm.output_validation import validate_one_line_summary, validate_render_output
 
 
 class OneLineSummaryTest(TestCase):
@@ -29,6 +29,25 @@ class OneLineSummaryTest(TestCase):
             with self.subTest(schema=schema.__name__):
                 self.assertNotIn("minLength", field_schema)
                 self.assertNotIn("maxLength", field_schema)
+
+    def test_market_overview_rejects_short_summary(self) -> None:
+        render = MarketOverviewRender(
+            summary="시장이 상승했습니다.",
+            one_line_summary="핵심 이슈와 변동 요인을 종합적으로 확인할 필요가 있습니다.",
+            sentiment="neutral",
+        )
+        with self.assertRaisesRegex(ValueError, "at least 300 characters"):
+            validate_render_output(render)
+
+    def test_market_overview_rejects_english_user_visible_text(self) -> None:
+        render = MarketOverviewRender(
+            summary="한국어 시황 요약입니다. " * 25,
+            one_line_summary="핵심 이슈와 변동 요인을 종합적으로 확인할 필요가 있습니다.",
+            sentiment="neutral",
+            positive_factors=["Technology stocks rallied."],
+        )
+        with self.assertRaisesRegex(ValueError, "positive_factors must be written in Korean"):
+            validate_render_output(render)
 
     def test_gemini_retries_with_correction_when_summary_is_invalid(self) -> None:
         invalid = BriefingRender(

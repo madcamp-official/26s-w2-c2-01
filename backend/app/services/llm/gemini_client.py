@@ -33,7 +33,7 @@ class GeminiBriefingLLMClient(BriefingLLMClient):
     # 특정 버전(예: gemini-2.5-flash)을 고정하면 구글이 신규 프로젝트에 대해
     # 조용히 단종시킬 때(실측: 2026-07-14, 404 "no longer available to new
     # users") 매번 폴백만 타게 된다 — latest 별칭으로 그 문제를 피한다.
-    model_name = "gemini-flash-latest"
+    model_name = "gemini-3.1-flash-lite"
 
     def __init__(self, api_key: str) -> None:
         self._client = genai.Client(api_key=api_key)
@@ -109,7 +109,8 @@ class GeminiBriefingLLMClient(BriefingLLMClient):
     def render_market_overview(self, *, facts: FactsExtraction) -> MarketOverviewRender:
         user_prompt = (
             "[출력 언어] 한국어\n"
-            "[작성 지시] 모든 요약과 항목 설명을 한국어로 작성하세요.\n\n"
+            "[작성 지시] 전체 시황을 400~700자의 충분히 상세한 한국어로 "
+            "작성하고, 요인·지수·업종·리스크를 고루 다루세요.\n\n"
             f"[사실 데이터 facts JSON]\n{facts.model_dump_json()}"
         )
         return self._generate(

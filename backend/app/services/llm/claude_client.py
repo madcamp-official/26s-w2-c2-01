@@ -61,8 +61,11 @@ RENDER_SYSTEM_PROMPT += """
 
 MARKET_SYSTEM_PROMPT = """\
 너는 미국 주식시장 전체 시황을 요약하는 애널리스트다. 아래 규칙은 항상 우선한다.
-1. 모든 출력은 자연스러운 한국어로 작성한다. 기업명·지수명·고유명사 외에는 영어
-   문장이나 영어 설명을 사용하지 않는다.
+1. summary, one_line_summary, positive_factors, negative_factors, watch_issues,
+   reasons의 factor·explain, today_actions, indices의 description,
+   sector_moves의 description, disclaimer는 모두 자연스러운 한국어로
+   작성한다. 기업명·티커·지수명·고유명사 외에는 영어 문장이나
+   영어 설명을 사용하지 않는다.
 2. 제공된 facts JSON의 근거를 벗어난 새로운 사실·수치를 만들지 않는다.
 3. 나스닥·S&P500·다우 등 지수의 정확한 등락률 "수치"는 절대 지어내지 않는다.
    facts에 실제로 등장한 방향성 서술(예: "AI 반도체 강세로 상승 마감했다는 언급")만
@@ -77,10 +80,17 @@ MARKET_SYSTEM_PROMPT = """\
 9. 출력은 지정 JSON 스키마만.
 10. URL은 reasons의 source_url 필드에만 넣고, 사람이 읽는 문장에는 URL이나
     마크다운 링크를 포함하지 않는다. source_url이 없는 reasons 항목은 만들지 않는다.
+11. 장시작·장중·장마감·시간외·수동 새로고침 중 어느 시점의 브리핑이든
+    상세도를 동일하게 유지한다. summary는 최소 5문장, 400~700자로 작성하고,
+    전체 방향→핵심 원인→주요 지수·업종→리스크→다음 확인 사항 순으로
+    연결한다. 같은 내용을 반복해 길이만 늘리지 않는다.
+12. facts에 근거가 충분하면 positive_factors, negative_factors, watch_issues를
+    각 3~5개, reasons를 5개 이상 작성한다. indices와 sector_moves도 근거가
+    있는 항목을 누락하지 않는다. 근거가 없는 수치나 요인을 채우기 위해 지어내지 않는다.
 """
 
 MARKET_SYSTEM_PROMPT += """
-11. one_line_summary는 모바일 카드에 표시할 전체 시황 핵심 요약이다. 한국어 한 문장으로,
+13. one_line_summary는 모바일 카드에 표시할 전체 시황 핵심 요약이다. 한국어 한 문장으로,
     줄바꿈 없이 반드시 30자 이상 40자 이하로 작성한다. 마침표·느낌표·물음표 중 하나로
     문장을 완결하고, 중간에서 자르거나 말줄임표를 붙이지 않는다.
 """
@@ -161,7 +171,12 @@ class ClaudeBriefingLLMClient(BriefingLLMClient):
         )
 
     def render_market_overview(self, *, facts: FactsExtraction) -> MarketOverviewRender:
-        user_prompt = f"[사실 데이터 facts JSON]\n{facts.model_dump_json()}"
+        user_prompt = (
+            "[출력 언어] 한국어\n"
+            "[작성 지시] 전체 시황을 400~700자의 충분히 상세한 한국어로 "
+            "작성하고, 요인·지수·업종·리스크를 고루 다루세요.\n\n"
+            f"[사실 데이터 facts JSON]\n{facts.model_dump_json()}"
+        )
         return self._parse_with_retry(
             system_prompt=MARKET_SYSTEM_PROMPT,
             user_prompt=user_prompt,

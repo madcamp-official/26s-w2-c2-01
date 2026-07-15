@@ -22,10 +22,14 @@ _LEAKED_FIELD_NAME = re.compile(r"\bsource_url\b")
 # 들어가면 안 된다 — 실측: "...했습니다. (source_url: https://...)"처럼 문장
 # 뒤에 URL이 그대로 붙어나오는 경우.
 _URL_PATTERN = re.compile(r"https?://")
+_HANGUL_PATTERN = re.compile(r"[가-힣]")
+_MARKET_SUMMARY_MIN_LENGTH = 300
 
 ONE_LINE_SUMMARY_RETRY_INSTRUCTION = """
-[한 줄 요약 재작성]
-직전 응답의 one_line_summary가 검증에 실패했습니다. 다른 필드의 형식은 유지하면서
+[한 줄 요약 재작성 및 출력 규칙 재확인]
+직전 응답이 길이 또는 언어 규칙 검증에 실패했습니다. 전체 시황이라면 summary를
+최소 5문장·400자 내외의 충분히 상세한 한국어로 작성하세요. 모든 사용자 표시
+설명은 고유명사를 제외하고 한국어를 포함해야 합니다. 다른 필드의 형식은 유지하면서
 one_line_summary를 줄바꿈 없는 완결된 한국어 한 문장으로 다시 작성하세요.
 공백과 마지막 문장부호를 포함해 반드시 30자 이상 40자 이하이어야 하며,
 마침표·느낌표·물음표 중 하나로 끝내세요. 중간에서 자르거나 말줄임표를 쓰지 마세요.
@@ -46,10 +50,39 @@ def validate_one_line_summary(value: str) -> str:
 
 
 def validate_render_output(value: object) -> object:
-    """Normalize and validate one-line summaries only on render-stage outputs."""
+    """Normalize and validate user-visible render output business rules."""
     if hasattr(value, "one_line_summary"):
         value.one_line_summary = validate_one_line_summary(value.one_line_summary)
+    if value.__class__.__name__ == "MarketOverviewRender":
+        _validate_market_overview(value)
     return value
+
+
+def _require_korean(value: str, field: str) -> None:
+    if value.strip() and not _HANGUL_PATTERN.search(value):
+        raise ValueError(f"{field} must be written in Korean")
+
+
+def _validate_market_overview(value: object) -> None:
+    summary = re.sub(r"\s+", " ", value.summary).strip()
+    if len(summary) < _MARKET_SUMMARY_MIN_LENGTH:
+        raise ValueError(
+            f"market overview summary must be at least {_MARKET_SUMMARY_MIN_LENGTH} characters, "
+            f"got {len(summary)}"
+        )
+
+    _require_korean(summary, "summary")
+    _require_korean(value.one_line_summary, "one_line_summary")
+    _require_korean(value.disclaimer, "disclaimer")
+    for field in ("positive_factors", "negative_factors", "watch_issues", "today_actions"):
+        for item in getattr(value, field):
+            _require_korean(item, field)
+    for reason in value.reasons:
+        _require_korean(reason.factor, "reasons.factor")
+        _require_korean(reason.explain, "reasons.explain")
+    for field in ("indices", "sector_moves"):
+        for item in getattr(value, field):
+            _require_korean(item.description, f"{field}.description")
 
 
 def find_malformed_strings(value: object, *, url_allowed: bool = False) -> list[str]:
