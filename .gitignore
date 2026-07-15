@@ -1,0 +1,6 @@
+# Runtime scratch files
+*.pid
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
